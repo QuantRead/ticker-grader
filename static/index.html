@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuantRead Ticker Grader — Free Stock Analysis Tool</title>
+    <meta name="description" content="Get a free institutional-grade conviction score for any stock. Powered by the QuantRead Indicator Suite — EMA Ribbon, RVOL, RSI, ATR analysis in seconds.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Background Effects -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <!-- Nav -->
+    <nav class="nav" id="nav">
+        <div class="nav-inner">
+            <a href="https://quantread.app" class="nav-logo">
+                <span class="logo-q">Q</span>uantRead
+            </a>
+            <div class="nav-links">
+                <a href="https://quantread.app/indicators" class="nav-link">Indicators</a>
+                <a href="https://quantread.app" class="nav-cta">Get the Suite — $49</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-badge">FREE TOOL</div>
+        <h1 class="hero-title">
+            Ticker <span class="gradient-text">Grader</span>
+        </h1>
+        <p class="hero-subtitle">
+            Institutional-grade conviction scoring for any stock. <br>
+            Powered by the same engine behind our automated trading system.
+        </p>
+
+        <!-- Search -->
+        <div class="search-container" id="search-container">
+            <div class="search-box">
+                <div class="search-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                    </svg>
+                </div>
+                <input
+                    type="text"
+                    id="ticker-input"
+                    class="search-input"
+                    placeholder="Enter a ticker symbol (e.g., NVDA)"
+                    maxlength="10"
+                    autocomplete="off"
+                    spellcheck="false"
+                >
+                <button id="grade-btn" class="search-btn" onclick="gradeIt()">
+                    <span class="btn-text">Grade It</span>
+                    <span class="btn-loader" id="btn-loader"></span>
+                </button>
+            </div>
+            <div class="popular-tickers">
+                <span class="popular-label">Popular:</span>
+                <button class="ticker-chip" onclick="quickGrade('NVDA')">NVDA</button>
+                <button class="ticker-chip" onclick="quickGrade('TSLA')">TSLA</button>
+                <button class="ticker-chip" onclick="quickGrade('AAPL')">AAPL</button>
+                <button class="ticker-chip" onclick="quickGrade('AMD')">AMD</button>
+                <button class="ticker-chip" onclick="quickGrade('SPY')">SPY</button>
+                <button class="ticker-chip" onclick="quickGrade('WMT')">WMT</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Error -->
+    <div class="error-banner" id="error-banner">
+        <span id="error-text"></span>
+    </div>
+
+    <!-- Results -->
+    <section class="results-section" id="results" style="display:none;">
+        <!-- Header Card -->
+        <div class="result-header">
+            <div class="result-header-left">
+                <div class="ticker-badge" id="res-ticker">NVDA</div>
+                <div class="company-info">
+                    <h2 id="res-company">NVIDIA Corporation</h2>
+                    <div class="company-meta">
+                        <span id="res-sector">Technology</span>
+                        <span class="meta-dot">·</span>
+                        <span id="res-mcap">$3.2T</span>
+                    </div>
+                </div>
+            </div>
+            <div class="result-header-right">
+                <div class="price-display">
+                    <span class="price-value" id="res-price">$142.85</span>
+                    <span class="price-change" id="res-change">+$2.15 (+1.53%)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grade Card -->
+        <div class="grade-card">
+            <div class="grade-ring-container">
+                <svg class="grade-ring" viewBox="0 0 140 140">
+                    <circle class="grade-ring-bg" cx="70" cy="70" r="62"/>
+                    <circle class="grade-ring-fill" id="grade-ring-fill" cx="70" cy="70" r="62"
+                        stroke-dasharray="389.56"
+                        stroke-dashoffset="389.56"/>
+                </svg>
+                <div class="grade-inner">
+                    <span class="grade-letter" id="res-grade">A</span>
+                    <span class="grade-score" id="res-score">85</span>
+                </div>
+            </div>
+            <div class="grade-details">
+                <div class="grade-verdict" id="res-verdict">Strong Setup — High Conviction</div>
+                <p class="grade-explain">
+                    This score is calculated using the same 6-factor conviction model
+                    that powers our automated trading system. It combines trend structure,
+                    volume confirmation, momentum, and volatility analysis.
+                </p>
+            </div>
+        </div>
+
+        <!-- Indicator Grid -->
+        <div class="indicators-grid">
+            <!-- EMA Ribbon -->
+            <div class="indicator-card" id="ind-ribbon">
+                <div class="ind-header">
+                    <span class="ind-icon">📊</span>
+                    <span class="ind-title">EMA Ribbon</span>
+                    <span class="ind-badge" id="ind-ribbon-status">BULL</span>
+                </div>
+                <div class="ind-values">
+                    <div class="ind-row"><span>EMA 8</span><span id="ind-ema8">—</span></div>
+                    <div class="ind-row"><span>EMA 21</span><span id="ind-ema21">—</span></div>
+                    <div class="ind-row"><span>EMA 34</span><span id="ind-ema34">—</span></div>
+                    <div class="ind-row"><span>EMA 55</span><span id="ind-ema55">—</span></div>
+                </div>
+                <div class="ind-bar-container">
+                    <div class="ind-bar" id="ind-ribbon-bar" style="width:0%"></div>
+                </div>
+            </div>
+
+            <!-- RVOL -->
+            <div class="indicator-card" id="ind-rvol">
+                <div class="ind-header">
+                    <span class="ind-icon">📈</span>
+                    <span class="ind-title">Relative Volume</span>
+                    <span class="ind-badge" id="ind-rvol-val">1.0x</span>
+                </div>
+                <div class="ind-values">
+                    <div class="ind-row"><span>Current Vol</span><span id="ind-cvol">—</span></div>
+                    <div class="ind-row"><span>Avg Vol (20d)</span><span id="ind-avol">—</span></div>
+                </div>
+                <div class="ind-bar-container">
+                    <div class="ind-bar" id="ind-rvol-bar" style="width:0%"></div>
+                </div>
+            </div>
+
+            <!-- RSI -->
+            <div class="indicator-card" id="ind-rsi">
+                <div class="ind-header">
+                    <span class="ind-icon">⚡</span>
+                    <span class="ind-title">RSI (14)</span>
+                    <span class="ind-badge" id="ind-rsi-label">BULLISH</span>
+                </div>
+                <div class="ind-values">
+                    <div class="ind-row"><span>RSI Value</span><span id="ind-rsi-val">—</span></div>
+                    <div class="ind-row"><span>Zone</span><span id="ind-rsi-zone">—</span></div>
+                </div>
+                <div class="ind-bar-container">
+                    <div class="ind-bar" id="ind-rsi-bar" style="width:0%"></div>
+                </div>
+            </div>
+
+            <!-- ATR -->
+            <div class="indicator-card" id="ind-atr">
+                <div class="ind-header">
+                    <span class="ind-icon">🎯</span>
+                    <span class="ind-title">ATR Volatility</span>
+                    <span class="ind-badge" id="ind-atr-pct">—</span>
+                </div>
+                <div class="ind-values">
+                    <div class="ind-row"><span>ATR (14)</span><span id="ind-atr-val">—</span></div>
+                    <div class="ind-row"><span>% of Price</span><span id="ind-atr-pctval">—</span></div>
+                </div>
+                <div class="ind-bar-container">
+                    <div class="ind-bar" id="ind-atr-bar" style="width:0%"></div>
+                </div>
+            </div>
+
+            <!-- Momentum -->
+            <div class="indicator-card" id="ind-mom">
+                <div class="ind-header">
+                    <span class="ind-icon">🚀</span>
+                    <span class="ind-title">Momentum (5d)</span>
+                    <span class="ind-badge" id="ind-mom-pct">—</span>
+                </div>
+                <div class="ind-values">
+                    <div class="ind-row"><span>5-Day Change</span><span id="ind-mom-val">—</span></div>
+                </div>
+                <div class="ind-bar-container">
+                    <div class="ind-bar" id="ind-mom-bar" style="width:0%"></div>
+                </div>
+            </div>
+
+            <!-- Trend -->
+            <div class="indicator-card" id="ind-trend">
+                <div class="ind-header">
+                    <span class="ind-icon">📍</span>
+                    <span class="ind-title">Trend (SMA 20)</span>
+                    <span class="ind-badge" id="ind-trend-status">ABOVE</span>
+                </div>
+                <div class="ind-values">
+                    <div class="ind-row"><span>SMA 20</span><span id="ind-sma20">—</span></div>
+                    <div class="ind-row"><span>Price vs SMA</span><span id="ind-trend-diff">—</span></div>
+                </div>
+                <div class="ind-bar-container">
+                    <div class="ind-bar" id="ind-trend-bar" style="width:0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="cta-section">
+            <div class="cta-divider"></div>
+            <h2 class="cta-title">Want the <span class="gradient-text">exact entry & exit signals</span> on your own chart?</h2>
+            <p class="cta-subtitle">
+                This free grader shows you the conviction score. The full QuantRead Indicator Suite
+                gives you the <strong>live EMA Ribbon, ATR Levels, Trigger Cloud, and Volume Profile</strong>
+                directly on your TradingView charts — with full Pine Script source code.
+            </p>
+            <div class="cta-features">
+                <div class="cta-feature">✅ Full Pine Script source code</div>
+                <div class="cta-feature">✅ No monthly fees — one-time $49</div>
+                <div class="cta-feature">✅ No black box — see every line of logic</div>
+                <div class="cta-feature">✅ Lifetime updates included</div>
+            </div>
+            <a href="https://quantread.app/indicators" class="cta-button" id="cta-buy">
+                Get the Full Indicator Suite — $49
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </a>
+            <p class="cta-guarantee">30-day money-back guarantee. No questions asked.</p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-inner">
+            <span>© 2026 QuantRead. Built by <strong>Dante Mudd</strong>.</span>
+            <a href="https://quantread.app">quantread.app</a>
+        </div>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
