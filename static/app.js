@@ -3,7 +3,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 const API_BASE = window.location.origin;
-const PRO_URL = "https://quantread.app/indicators";
+const PRO_URL = "https://quantread.app/indicators#ticker-grader-pro";
 
 // ─── DOM References ────────────────────────────────────────
 const tickerInput = document.getElementById("ticker-input");
