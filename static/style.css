@@ -630,6 +630,128 @@ body {
 .ind-bar.red { background: var(--red); }
 .ind-bar.yellow { background: var(--yellow); }
 
+/* ─── How To Read Your Grade ─────────────────────────────── */
+
+.interpret-section {
+    margin-bottom: 48px;
+    animation: fadeUp 0.6s ease-out;
+}
+
+.interpret-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.interpret-icon {
+    font-size: 32px;
+    display: block;
+    margin-bottom: 12px;
+}
+
+.interpret-title {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 10px;
+}
+
+.interpret-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.7;
+}
+
+.interpret-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    gap: 16px;
+}
+
+.interpret-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    transition: all 0.3s;
+}
+
+.interpret-card:hover {
+    border-color: var(--accent);
+    background: var(--bg-card-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+}
+
+.interpret-card-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 14px;
+}
+
+.interpret-card-badge.day {
+    background: var(--green-dim);
+    color: var(--green);
+}
+.interpret-card-badge.scalper {
+    background: rgba(6, 182, 212, 0.15);
+    color: var(--cyan);
+}
+.interpret-card-badge.swing {
+    background: var(--yellow-dim);
+    color: var(--yellow);
+}
+
+.interpret-card-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.interpret-card-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 16px;
+}
+
+.interpret-card-action {
+    font-size: 13px;
+    color: var(--text-primary);
+    padding: 6px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.action-label.green {
+    background: var(--green-dim);
+    color: var(--green);
+}
+.action-label.red {
+    background: var(--red-dim);
+    color: var(--red);
+}
+.action-label.yellow {
+    background: var(--yellow-dim);
+    color: var(--yellow);
+}
+
 /* ─── CTA ────────────────────────────────────────────────── */
 
 .cta-section {
