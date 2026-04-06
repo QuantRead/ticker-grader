@@ -1,8 +1,11 @@
 """
-QuantRead Ticker Grader — Free Top-of-Funnel Tool
+QuantRead Ticker Grader — Freemium SaaS Tool
 ==================================================
 FastAPI backend that accepts a ticker symbol and returns a
 QuantRead-style conviction grade using real market data.
+
+Free tier: 3 grades/day (full grade + blurred indicators)
+Pro tier:  Unlimited grades, full indicator breakdown
 
 Run:  python server.py
 Open: http://localhost:8000
@@ -11,9 +14,11 @@ Open: http://localhost:8000
 import os
 import math
 import datetime
+import time
+from collections import defaultdict
 import numpy as np
 import yfinance as yf
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +31,33 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── Usage Tracking (In-Memory, resets on deploy) ────────────────
+FREE_DAILY_LIMIT = 3
+
+# { "ip_address": { "date": "2026-04-06", "count": 2, "tickers": ["NVDA", "AAPL"] } }
+usage_tracker: dict = defaultdict(lambda: {"date": "", "count": 0, "tickers": []})
+
+
+def get_usage(ip: str) -> dict:
+    """Get or reset daily usage for an IP address."""
+    today = datetime.date.today().isoformat()
+    record = usage_tracker[ip]
+    if record["date"] != today:
+        record["date"] = today
+        record["count"] = 0
+        record["tickers"] = []
+    return record
+
+
+def increment_usage(ip: str, ticker: str) -> dict:
+    """Increment usage count. Returns updated record."""
+    record = get_usage(ip)
+    record["count"] += 1
+    if ticker not in record["tickers"]:
+        record["tickers"].append(ticker)
+    return record
+
 
 # ─── Grading Engine ──────────────────────────────────────────────
 
@@ -299,15 +331,55 @@ def grade_ticker(symbol: str) -> dict:
 # ─── API Routes ──────────────────────────────────────────────────
 
 @app.get("/api/grade/{symbol}")
-async def api_grade(symbol: str):
+async def api_grade(symbol: str, request: Request):
     """Grade a ticker symbol and return the analysis."""
     symbol = symbol.upper().strip()
     if not symbol or len(symbol) > 10:
         raise HTTPException(status_code=400, detail="Invalid ticker symbol")
 
+    # ─── Usage tracking ──────────────────────────────────────
+    client_ip = request.client.host if request.client else "unknown"
+    # Check for proxy headers (Render uses reverse proxy)
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+
+    record = get_usage(client_ip)
+    is_pro = False  # TODO: check subscription status via Stripe/Whop
+
+    remaining = max(0, FREE_DAILY_LIMIT - record["count"])
+    limit_reached = remaining <= 0 and not is_pro
+
+    if limit_reached:
+        # Still return grade letter + score, but strip indicators
+        result = grade_ticker(symbol)
+        if result is None:
+            raise HTTPException(status_code=404, detail=f"No data found for '{symbol}'.")
+
+        # Strip detailed indicators for free users over limit
+        result["indicators"] = None
+        result["usage"] = {
+            "remaining": 0,
+            "limit": FREE_DAILY_LIMIT,
+            "is_pro": False,
+            "limit_reached": True,
+        }
+        return JSONResponse(content=result)
+
     result = grade_ticker(symbol)
     if result is None:
         raise HTTPException(status_code=404, detail=f"No data found for '{symbol}'. Check the ticker symbol and try again.")
+
+    # Increment usage after successful grade
+    increment_usage(client_ip, symbol)
+    new_remaining = max(0, FREE_DAILY_LIMIT - get_usage(client_ip)["count"])
+
+    result["usage"] = {
+        "remaining": new_remaining,
+        "limit": FREE_DAILY_LIMIT,
+        "is_pro": is_pro,
+        "limit_reached": False,
+    }
 
     return JSONResponse(content=result)
 

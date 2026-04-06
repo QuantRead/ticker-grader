@@ -891,6 +891,249 @@ body {
 
 /* ─── Responsive ─────────────────────────────────────────── */
 
+/* ─── Freemium: Usage Counter ────────────────────────────── */
+
+.usage-counter {
+    text-align: center;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+    border-radius: 100px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    margin-right: auto;
+    width: fit-content;
+    display: flex;
+    justify-content: center;
+}
+
+.usage-counter.ok {
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.15);
+    color: var(--green);
+}
+
+.usage-counter.low {
+    background: rgba(234, 179, 8, 0.08);
+    border: 1px solid rgba(234, 179, 8, 0.15);
+    color: var(--yellow);
+}
+
+.usage-counter.depleted {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.15);
+    color: var(--red);
+}
+
+.usage-counter.pro {
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    color: var(--accent-bright);
+}
+
+.usage-dots {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 2px;
+}
+
+.usage-pro {
+    background: linear-gradient(135deg, var(--accent), var(--accent-bright));
+    color: white;
+    padding: 2px 10px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+/* ─── Freemium: Gated Indicator Section ─────────────────── */
+
+.indicators-gated {
+    position: relative;
+}
+
+.indicators-grid.blurred,
+.interpret-section.blurred {
+    filter: blur(8px);
+    pointer-events: none;
+    user-select: none;
+    opacity: 0.5;
+    transition: filter 0.4s, opacity 0.4s;
+}
+
+.blur-upgrade-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 15, 0.4);
+    backdrop-filter: blur(4px);
+    border-radius: var(--radius-lg);
+}
+
+.blur-upgrade-card {
+    background: rgba(22, 22, 31, 0.95);
+    backdrop-filter: blur(30px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    padding: 48px 40px;
+    text-align: center;
+    max-width: 440px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.blur-lock-icon {
+    font-size: 40px;
+    margin-bottom: 16px;
+}
+
+.blur-upgrade-card h3 {
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 10px;
+}
+
+.blur-upgrade-card p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 24px;
+}
+
+.blur-upgrade-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-bright));
+    color: white;
+    padding: 14px 32px;
+    border-radius: var(--radius);
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 700;
+    transition: all 0.3s;
+    box-shadow: 0 4px 20px var(--accent-glow);
+}
+
+.blur-upgrade-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 40px var(--accent-glow);
+}
+
+.blur-upgrade-sub {
+    display: block;
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ─── Freemium: Upgrade Modal ───────────────────────────── */
+
+.upgrade-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    align-items: center;
+    justify-content: center;
+}
+
+.upgrade-modal.active {
+    display: flex;
+}
+
+.upgrade-modal-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 48px;
+    max-width: 480px;
+    width: 90%;
+    text-align: center;
+    position: relative;
+    animation: fadeUp 0.3s ease-out;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.upgrade-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 28px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.upgrade-modal-close:hover { color: var(--text-primary); }
+
+.upgrade-modal-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.upgrade-modal-card h2 {
+    font-size: 26px;
+    font-weight: 800;
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
+}
+
+.upgrade-modal-text {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 28px;
+}
+
+.upgrade-modal-features {
+    text-align: left;
+    margin-bottom: 28px;
+}
+
+.upgrade-feat {
+    padding: 8px 0;
+    font-size: 14px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.upgrade-modal-btn {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--accent), var(--accent-bright));
+    color: white;
+    padding: 16px 40px;
+    border-radius: var(--radius);
+    text-decoration: none;
+    font-size: 17px;
+    font-weight: 700;
+    transition: all 0.3s;
+    box-shadow: 0 4px 20px var(--accent-glow);
+}
+
+.upgrade-modal-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 40px var(--accent-glow);
+}
+
+.upgrade-modal-guarantee {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 16px;
+}
+
+/* ─── Responsive ─────────────────────────────────────────── */
+
 @media (max-width: 640px) {
     .result-header {
         flex-direction: column;
@@ -909,10 +1152,19 @@ body {
     .indicators-grid {
         grid-template-columns: 1fr;
     }
+    .interpret-grid {
+        grid-template-columns: 1fr;
+    }
     .nav-link { display: none; }
     .footer-inner {
         flex-direction: column;
         gap: 8px;
         text-align: center;
+    }
+    .blur-upgrade-card {
+        padding: 32px 24px;
+    }
+    .upgrade-modal-card {
+        padding: 32px 24px;
     }
 }

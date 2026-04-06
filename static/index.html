@@ -126,7 +126,27 @@
             </div>
         </div>
 
-        <!-- Indicator Grid -->
+        <!-- Usage Counter -->
+        <div class="usage-counter ok" id="usage-counter">
+            <span class="usage-dots">●●●</span> 3/3 free grades remaining today
+        </div>
+
+        <!-- Indicator Grid (Gated) -->
+        <div class="indicators-gated">
+            <!-- Blur Overlay + Upgrade CTA -->
+            <div class="blur-upgrade-overlay" id="blur-overlay" style="display:none;">
+                <div class="blur-upgrade-card">
+                    <div class="blur-lock-icon">🔒</div>
+                    <h3>Daily Limit Reached</h3>
+                    <p>You've used all 3 free grades today. Upgrade to Pro for unlimited access to the full indicator breakdown.</p>
+                    <a href="https://quantread.app/indicators" class="blur-upgrade-btn">
+                        Unlock Unlimited Grades — $14.99/mo
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </a>
+                    <span class="blur-upgrade-sub">Cancel anytime · Resets daily at midnight</span>
+                </div>
+            </div>
+
         <div class="indicators-grid">
             <!-- EMA Ribbon -->
             <div class="indicator-card" id="ind-ribbon">
@@ -225,6 +245,7 @@
                 </div>
             </div>
         </div>
+        </div> <!-- /indicators-gated -->
 
         <!-- How To Read Your Grade -->
         <div class="interpret-section" id="interpret-section">
@@ -322,6 +343,29 @@
             <a href="https://quantread.app">quantread.app</a>
         </div>
     </footer>
+
+    <!-- Upgrade Modal -->
+    <div class="upgrade-modal" id="upgrade-modal">
+        <div class="upgrade-modal-card">
+            <button class="upgrade-modal-close" onclick="closeUpgradeModal()">&times;</button>
+            <div class="upgrade-modal-icon">⚡</div>
+            <h2>Unlock Ticker Grader Pro</h2>
+            <p class="upgrade-modal-text">
+                Get unlimited conviction grades with the full 6-factor indicator breakdown.
+                See exactly what's driving each stock's score.
+            </p>
+            <div class="upgrade-modal-features">
+                <div class="upgrade-feat">✅ Unlimited daily grades</div>
+                <div class="upgrade-feat">✅ Full EMA Ribbon, RVOL, RSI, ATR breakdown</div>
+                <div class="upgrade-feat">✅ Trading style interpretation guide</div>
+                <div class="upgrade-feat">✅ Priority API speed</div>
+            </div>
+            <a href="https://quantread.app/indicators" class="upgrade-modal-btn">
+                Get Pro — $14.99/mo
+            </a>
+            <p class="upgrade-modal-guarantee">30-day money-back guarantee. Cancel anytime.</p>
+        </div>
+    </div>
 
     <script src="/static/app.js"></script>
 </body>

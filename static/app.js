@@ -1,8 +1,9 @@
 /* ═══════════════════════════════════════════════════════════
-   QuantRead Ticker Grader — Frontend Logic
+   QuantRead Ticker Grader — Frontend Logic (Freemium)
    ═══════════════════════════════════════════════════════════ */
 
 const API_BASE = window.location.origin;
+const PRO_URL = "https://quantread.app/indicators";
 
 // ─── DOM References ────────────────────────────────────────
 const tickerInput = document.getElementById("ticker-input");
@@ -58,6 +59,8 @@ async function gradeIt() {
 
 // ─── Render Results ────────────────────────────────────────
 function renderResults(data) {
+    const usage = data.usage || { remaining: 99, limit: 3, is_pro: false, limit_reached: false };
+
     // Header
     document.getElementById("res-ticker").textContent = data.ticker;
     document.getElementById("res-company").textContent = data.company_name;
@@ -70,7 +73,7 @@ function renderResults(data) {
     changeEl.textContent = `${sign}$${data.day_change.toFixed(2)} (${sign}${data.day_change_pct.toFixed(2)}%)`;
     changeEl.className = `price-change ${data.day_change >= 0 ? "positive" : "negative"}`;
 
-    // Grade Ring
+    // Grade Ring (always visible — even for free users)
     const gradeCard = document.querySelector(".grade-card");
     gradeCard.className = `grade-card grade-${data.grade.toLowerCase()}`;
 
@@ -80,7 +83,7 @@ function renderResults(data) {
 
     // Animate ring
     const ring = document.getElementById("grade-ring-fill");
-    const circumference = 2 * Math.PI * 62; // r=62
+    const circumference = 2 * Math.PI * 62;
     const offset = circumference - (data.score / 100) * circumference;
     ring.style.strokeDasharray = circumference;
     ring.style.strokeDashoffset = circumference;
@@ -91,9 +94,37 @@ function renderResults(data) {
         }, 100);
     });
 
-    // ─── Indicators ────────────────────────────────────────
-    const ind = data.indicators;
+    // ─── Usage Counter ──────────────────────────────────────
+    updateUsageCounter(usage);
 
+    // ─── Indicators (gated) ─────────────────────────────────
+    const indicatorsGrid = document.querySelector(".indicators-grid");
+    const blurOverlay = document.getElementById("blur-overlay");
+    const interpretSection = document.getElementById("interpret-section");
+
+    if (data.indicators && !usage.limit_reached) {
+        // Full access — render all indicators
+        indicatorsGrid.classList.remove("blurred");
+        if (blurOverlay) blurOverlay.style.display = "none";
+        if (interpretSection) interpretSection.classList.remove("blurred");
+        renderIndicators(data.indicators, data.price);
+    } else {
+        // Gated — show blurred indicators with upgrade CTA
+        indicatorsGrid.classList.add("blurred");
+        if (blurOverlay) blurOverlay.style.display = "flex";
+        if (interpretSection) interpretSection.classList.add("blurred");
+
+        // Set placeholder values for blurred state
+        renderPlaceholderIndicators();
+    }
+
+    // Show results
+    resultsSection.style.display = "block";
+    resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ─── Render Indicators (Full Access) ───────────────────────
+function renderIndicators(ind, price) {
     // EMA Ribbon
     setBadgeClass("ind-ribbon-status", ind.ema_ribbon.status);
     document.getElementById("ind-ribbon-status").textContent = ind.ema_ribbon.status;
@@ -139,14 +170,76 @@ function renderResults(data) {
     setBadgeClass("ind-trend-status", ind.trend.status === "ABOVE" ? "BULL" : "BEAR");
     document.getElementById("ind-trend-status").textContent = ind.trend.status;
     document.getElementById("ind-sma20").textContent = `$${ind.trend.sma_20.toFixed(2)}`;
-    const trendDiff = ((data.price - ind.trend.sma_20) / ind.trend.sma_20 * 100).toFixed(2);
+    const trendDiff = ((price - ind.trend.sma_20) / ind.trend.sma_20 * 100).toFixed(2);
     document.getElementById("ind-trend-diff").textContent = `${trendDiff >= 0 ? "+" : ""}${trendDiff}%`;
     setBar("ind-trend-bar", ind.trend.score, 4);
-
-    // Show results
-    resultsSection.style.display = "block";
-    resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
 }
+
+// ─── Render Placeholder Indicators (Blurred State) ─────────
+function renderPlaceholderIndicators() {
+    document.getElementById("ind-ribbon-status").textContent = "—";
+    document.getElementById("ind-ema8").textContent = "••••";
+    document.getElementById("ind-ema21").textContent = "••••";
+    document.getElementById("ind-ema34").textContent = "••••";
+    document.getElementById("ind-ema55").textContent = "••••";
+    document.getElementById("ind-rvol-val").textContent = "—";
+    document.getElementById("ind-cvol").textContent = "••••";
+    document.getElementById("ind-avol").textContent = "••••";
+    document.getElementById("ind-rsi-label").textContent = "—";
+    document.getElementById("ind-rsi-val").textContent = "••••";
+    document.getElementById("ind-rsi-zone").textContent = "••••";
+    document.getElementById("ind-atr-pct").textContent = "—";
+    document.getElementById("ind-atr-val").textContent = "••••";
+    document.getElementById("ind-atr-pctval").textContent = "••••";
+    document.getElementById("ind-mom-pct").textContent = "—";
+    document.getElementById("ind-mom-val").textContent = "••••";
+    document.getElementById("ind-trend-status").textContent = "—";
+    document.getElementById("ind-sma20").textContent = "••••";
+    document.getElementById("ind-trend-diff").textContent = "••••";
+}
+
+// ─── Usage Counter ─────────────────────────────────────────
+function updateUsageCounter(usage) {
+    const counter = document.getElementById("usage-counter");
+    if (!counter) return;
+
+    if (usage.is_pro) {
+        counter.innerHTML = `<span class="usage-pro">PRO</span> Unlimited grades`;
+        counter.className = "usage-counter pro";
+    } else {
+        const remaining = usage.remaining;
+        counter.innerHTML = `<span class="usage-dots">${getDots(remaining, usage.limit)}</span> ${remaining}/${usage.limit} free grades remaining today`;
+        counter.className = `usage-counter ${remaining === 0 ? "depleted" : remaining === 1 ? "low" : "ok"}`;
+    }
+}
+
+function getDots(remaining, total) {
+    let dots = "";
+    for (let i = 0; i < total; i++) {
+        dots += i < remaining ? "●" : "○";
+    }
+    return dots;
+}
+
+// ─── Upgrade Modal ─────────────────────────────────────────
+function openUpgradeModal() {
+    const modal = document.getElementById("upgrade-modal");
+    if (modal) modal.classList.add("active");
+}
+
+function closeUpgradeModal() {
+    const modal = document.getElementById("upgrade-modal");
+    if (modal) modal.classList.remove("active");
+}
+
+// Close modal on backdrop click
+document.addEventListener("click", (e) => {
+    if (e.target.id === "upgrade-modal") closeUpgradeModal();
+});
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeUpgradeModal();
+});
 
 // ─── Helpers ───────────────────────────────────────────────_
 
