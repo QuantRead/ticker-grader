@@ -12,6 +12,7 @@ Open: http://localhost:8000
 """
 
 import os
+import json
 import math
 import datetime
 import time
@@ -32,17 +33,54 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ─── Usage Tracking (In-Memory, resets on deploy) ────────────────
+# ─── Usage Tracking (Upstash Redis — persistent across deploys) ──
 FREE_DAILY_LIMIT = 3
 
-# { "ip_address": { "date": "2026-04-06", "count": 2, "tickers": ["NVDA", "AAPL"] } }
-usage_tracker: dict = defaultdict(lambda: {"date": "", "count": 0, "tickers": []})
+# Upstash Redis connection (HTTP-based, no TCP pool needed)
+_redis_client = None
+_REDIS_AVAILABLE = False
+
+try:
+    _upstash_url = os.environ.get("UPSTASH_REDIS_REST_URL")
+    _upstash_token = os.environ.get("UPSTASH_REDIS_REST_TOKEN")
+    if _upstash_url and _upstash_token:
+        from upstash_redis import Redis
+        _redis_client = Redis(url=_upstash_url, token=_upstash_token)
+        _redis_client.ping()  # Verify connection at startup
+        _REDIS_AVAILABLE = True
+        print("✅ Upstash Redis connected — usage tracking is persistent")
+    else:
+        print("⚠️  UPSTASH_REDIS env vars not set — falling back to in-memory usage tracking")
+except Exception as e:
+    print(f"⚠️  Redis connection failed ({e}) — falling back to in-memory usage tracking")
+
+# In-memory fallback (same as before, used only when Redis is unavailable)
+_mem_tracker: dict = defaultdict(lambda: {"date": "", "count": 0, "tickers": []})
+
+_USAGE_TTL = 86400  # 24 hours in seconds
+
+
+def _redis_key(ip: str) -> str:
+    """Build the Redis key for today's usage record."""
+    return f"usage:{ip}:{datetime.date.today().isoformat()}"
 
 
 def get_usage(ip: str) -> dict:
-    """Get or reset daily usage for an IP address."""
+    """Get daily usage for an IP address. Reads from Redis if available, else in-memory."""
     today = datetime.date.today().isoformat()
-    record = usage_tracker[ip]
+
+    if _REDIS_AVAILABLE:
+        try:
+            raw = _redis_client.get(_redis_key(ip))
+            if raw:
+                data = json.loads(raw) if isinstance(raw, str) else raw
+                return {"date": today, "count": data.get("count", 0), "tickers": data.get("tickers", [])}
+            return {"date": today, "count": 0, "tickers": []}
+        except Exception as e:
+            print(f"⚠️  Redis read failed ({e}) — using in-memory fallback")
+
+    # In-memory fallback
+    record = _mem_tracker[ip]
     if record["date"] != today:
         record["date"] = today
         record["count"] = 0
@@ -51,11 +89,23 @@ def get_usage(ip: str) -> dict:
 
 
 def increment_usage(ip: str, ticker: str) -> dict:
-    """Increment usage count. Returns updated record."""
+    """Increment usage count. Writes to Redis if available, else in-memory."""
     record = get_usage(ip)
     record["count"] += 1
     if ticker not in record["tickers"]:
         record["tickers"].append(ticker)
+
+    if _REDIS_AVAILABLE:
+        try:
+            payload = json.dumps({"count": record["count"], "tickers": record["tickers"]})
+            _redis_client.set(_redis_key(ip), payload, ex=_USAGE_TTL)
+        except Exception as e:
+            print(f"⚠️  Redis write failed ({e}) — count stored in-memory only")
+            _mem_tracker[ip] = record
+
+    else:
+        _mem_tracker[ip] = record
+
     return record
 
 
