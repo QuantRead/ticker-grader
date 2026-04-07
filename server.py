@@ -207,18 +207,23 @@ def grade_ticker(symbol: str) -> dict:
         intraday_rvol = None
         data_source = "daily"
         try:
-            intra = stock.history(period="1d", interval="5m")
-            if not intra.empty and len(intra) >= 15:
-                intra_closes = intra["Close"].values.tolist()
-                intra_volumes = intra["Volume"].values.tolist()
-                # RSI on 5-min candles (matches Pine Script)
-                intra_deltas = [intra_closes[i] - intra_closes[i-1] for i in range(1, len(intra_closes))]
-                intra_gains = [d if d > 0 else 0 for d in intra_deltas[-14:]]
-                intra_losses = [-d if d < 0 else 0 for d in intra_deltas[-14:]]
-                _ig = sum(intra_gains) / max(len(intra_gains), 1)
-                _il = sum(intra_losses) / max(len(intra_losses), 1)
-                _irs = _ig / _il if _il > 0 else 100
-                intraday_rsi = 100 - (100 / (1 + _irs))
+            # Fresh ticker object avoids session/cache conflicts with the daily fetch
+            intra_ticker = yf.Ticker(symbol)
+            intra = intra_ticker.history(period="5d", interval="5m", prepost=False)
+            print(f"[Intraday] {symbol}: {len(intra)} candles fetched")
+            if not intra.empty and len(intra) >= 5:
+                intra_closes = intra["Close"].dropna().values.tolist()
+                intra_volumes = intra["Volume"].dropna().values.tolist()
+                if len(intra_closes) >= 15:
+                    # RSI on 5-min candles (matches Pine Script)
+                    intra_deltas = [intra_closes[i] - intra_closes[i-1] for i in range(1, len(intra_closes))]
+                    intra_gains = [d if d > 0 else 0 for d in intra_deltas[-14:]]
+                    intra_losses = [-d if d < 0 else 0 for d in intra_deltas[-14:]]
+                    _ig = sum(intra_gains) / max(len(intra_gains), 1)
+                    _il = sum(intra_losses) / max(len(intra_losses), 1)
+                    _irs = _ig / _il if _il > 0 else 100
+                    intraday_rsi = 100 - (100 / (1 + _irs))
+                    print(f"[Intraday] {symbol}: RSI={intraday_rsi:.1f}")
                 # RVOL on 5-min candles
                 if len(intra_volumes) >= 2:
                     _recent_vol = intra_volumes[-1]
@@ -226,8 +231,10 @@ def grade_ticker(symbol: str) -> dict:
                     if _avg_vol > 0:
                         intraday_rvol = _recent_vol / _avg_vol
                 data_source = "intraday_5m"
+            else:
+                print(f"[Intraday] {symbol}: insufficient candles ({len(intra)}), using daily")
         except Exception as e:
-            print(f"Intraday fetch failed for {ticker}: {e}")
+            print(f"[Intraday] {symbol}: fetch failed: {e}")
 
         # ─── 1. EMA Ribbon (8/21/34/55) ──────────────────────
         ema_8 = calculate_ema(closes, 8)
