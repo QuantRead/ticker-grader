@@ -118,6 +118,12 @@ function renderResults(data) {
         dsContainer.style.display = "block";
     }
 
+    // ─── Time Qualifier Note ────────────────────────────────
+    const timeQualifier = document.getElementById("time-qualifier");
+    if (timeQualifier) {
+        timeQualifier.style.display = "block";
+    }
+
     // ─── Usage Counter ──────────────────────────────────────
     updateUsageCounter(usage);
 

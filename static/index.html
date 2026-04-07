@@ -127,7 +127,10 @@
                     <span id="data-source-badge" class="" style="font-size:11px; padding:3px 8px; border-radius:6px; font-weight:600;"></span>
                 </div>
                 <div id="rsi-penalty-banner" style="display:none; margin-top:10px; padding:8px 12px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); border-radius:8px; font-size:12px; color:#f87171;">
-                    ⚠️ <strong>RSI Overbought (&gt;75)</strong> — Grade capped. The Pine Script would also flag this as overextended.
+                    ⚠️ <strong>RSI Overbought (&gt;75)</strong> — Grade capped at D. The live system would also block this entry.
+                </div>
+                <div id="time-qualifier" style="display:none; margin-top:10px; padding:8px 12px; background:rgba(156,163,175,0.08); border:1px solid rgba(156,163,175,0.2); border-radius:8px; font-size:11px; color:#9ca3af; line-height:1.5;">
+                    <strong>⏱ Timing Note:</strong> This tool grades structural quality using available market data. The QuantRead Pine Script indicator provides real-time candle-by-candle timing on your TradingView chart and may show a different conviction grade based on live price action. For execution-level precision, always confirm with the Pine Script.
                 </div>
             </div>
         </div>
