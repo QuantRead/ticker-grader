@@ -149,6 +149,27 @@ def _check_pro(ip: str) -> bool:
 
 # ─── Grading Engine ──────────────────────────────────────────────
 
+# SPY benchmark cache — avoids redundant yfinance calls within the same minute
+_spy_cache = {"closes": [], "fetched_at": 0}
+_SPY_CACHE_TTL = 120  # 2 minutes
+
+
+def _get_spy_closes() -> list:
+    """Fetch SPY daily closes with a short-lived cache."""
+    now = time.time()
+    if _spy_cache["closes"] and (now - _spy_cache["fetched_at"]) < _SPY_CACHE_TTL:
+        return _spy_cache["closes"]
+    try:
+        spy = yf.Ticker("SPY")
+        spy_hist = spy.history(period="3mo", interval="1d")
+        if not spy_hist.empty and len(spy_hist) >= 21:
+            _spy_cache["closes"] = spy_hist["Close"].values.tolist()
+            _spy_cache["fetched_at"] = now
+    except Exception as e:
+        print(f"SPY fetch failed: {e}")
+    return _spy_cache["closes"]
+
+
 def calculate_ema(prices, period):
     """Calculate Exponential Moving Average."""
     ema = [prices[0]]
@@ -291,29 +312,70 @@ def grade_ticker(symbol: str) -> dict:
         else:
             mom_score = 1
 
-        # ─── 6. Price vs 20-day SMA (trend confirmation) ────
+        # ─── 6. Trend Alignment (EMA slope) ────────────────
         sma_20 = np.mean(closes[-20:]) if len(closes) >= 20 else np.mean(closes)
         above_sma = current_price > sma_20
-        sma_score = 4 if above_sma else 1
-        trend = "ABOVE" if above_sma else "BELOW"
+        # Trend uses EMA fast > EMA slow + positive slope (matches agent)
+        ema_slope_positive = len(ema_8) >= 3 and ema_8[-1] > ema_8[-3]
+        if e8 > e21 and ema_slope_positive:
+            trend_score = 5
+            trend = "ALIGNED"
+        elif e8 > e21:
+            trend_score = 3
+            trend = "ABOVE"
+        elif above_sma:
+            trend_score = 2
+            trend = "NEUTRAL"
+        else:
+            trend_score = 1
+            trend = "BELOW"
+
+        # ─── 7. Relative Strength vs SPY (agent's #1 factor) ──
+        spy_closes = _get_spy_closes()
+        rs_vs_spy = 1.0
+        rs_label = "NEUTRAL"
+        if len(closes) >= 21 and len(spy_closes) >= 21:
+            stock_return = closes[-1] / max(closes[-21], 0.01)
+            spy_return = spy_closes[-1] / max(spy_closes[-21], 0.01)
+            rs_vs_spy = stock_return / spy_return if spy_return > 0 else 1.0
+
+        if rs_vs_spy >= 1.15:
+            rs_score = 5
+            rs_label = "LEADER"
+        elif rs_vs_spy >= 1.05:
+            rs_score = 4
+            rs_label = "STRONG"
+        elif rs_vs_spy >= 0.95:
+            rs_score = 3
+            rs_label = "NEUTRAL"
+        elif rs_vs_spy >= 0.85:
+            rs_score = 2
+            rs_label = "LAGGING"
+        else:
+            rs_score = 1
+            rs_label = "WEAK"
 
         # ─── COMPOSITE GRADE ─────────────────────────────────
+        # Weights aligned with the trading agent's public factors:
+        # Agent: RS=35%, Liquidity=20%, Trend=15%, ATR=10%
+        # TG:    RS=30%, Ribbon=20%, RVOL=15%, Trend=15%, RSI=10%, ATR=10%
+        # (Liquidity omitted — requires bid/ask spread, not available via yfinance)
         weights = {
-            "ribbon": 0.25,
-            "rvol": 0.20,
-            "rsi": 0.15,
+            "rs_vs_spy": 0.30,
+            "ribbon": 0.20,
+            "rvol": 0.15,
+            "trend": 0.15,
+            "rsi": 0.10,
             "atr": 0.10,
-            "momentum": 0.15,
-            "sma": 0.15,
         }
 
         raw_score = (
-            ribbon_score * weights["ribbon"]
+            rs_score * weights["rs_vs_spy"]
+            + ribbon_score * weights["ribbon"]
             + rvol_score * weights["rvol"]
+            + trend_score * weights["trend"]
             + rsi_score * weights["rsi"]
             + atr_score * weights["atr"]
-            + mom_score * weights["momentum"]
-            + sma_score * weights["sma"]
         )
 
         # Scale to 0-100
@@ -405,7 +467,12 @@ def grade_ticker(symbol: str) -> dict:
                 "trend": {
                     "sma_20": round(sma_20, 2),
                     "status": trend,
-                    "score": sma_score,
+                    "score": trend_score,
+                },
+                "rs_vs_spy": {
+                    "value": round(rs_vs_spy, 3),
+                    "score": rs_score,
+                    "label": rs_label,
                 },
             },
             "timestamp": datetime.datetime.now().isoformat(),
