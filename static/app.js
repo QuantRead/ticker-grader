@@ -125,6 +125,19 @@ function renderResults(data) {
 
 // ─── Render Indicators (Full Access) ───────────────────────
 function renderIndicators(ind, price) {
+    // RS vs SPY (highest weight — matches trading agent)
+    if (ind.rs_vs_spy) {
+        const rsLabel = ind.rs_vs_spy.label;
+        const rsBadgeClass = (rsLabel === 'LEADER' || rsLabel === 'STRONG') ? 'bull' : rsLabel === 'NEUTRAL' ? 'neutral' : 'bear';
+        const rsBadge = document.getElementById('ind-rs-label');
+        rsBadge.textContent = rsLabel;
+        rsBadge.className = `ind-badge ${rsBadgeClass}`;
+        document.getElementById('ind-rs-val').textContent = `${ind.rs_vs_spy.value}x`;
+        const strengthLabels = { 'LEADER': 'Outperforming SPY', 'STRONG': 'Beating SPY', 'NEUTRAL': 'In-line with SPY', 'LAGGING': 'Trailing SPY', 'WEAK': 'Underperforming SPY' };
+        document.getElementById('ind-rs-strength').textContent = strengthLabels[rsLabel] || rsLabel;
+        setBar('ind-rs-bar', ind.rs_vs_spy.score, 5);
+    }
+
     // EMA Ribbon
     setBadgeClass("ind-ribbon-status", ind.ema_ribbon.status);
     document.getElementById("ind-ribbon-status").textContent = ind.ema_ribbon.status;
@@ -172,11 +185,14 @@ function renderIndicators(ind, price) {
     document.getElementById("ind-sma20").textContent = `$${ind.trend.sma_20.toFixed(2)}`;
     const trendDiff = ((price - ind.trend.sma_20) / ind.trend.sma_20 * 100).toFixed(2);
     document.getElementById("ind-trend-diff").textContent = `${trendDiff >= 0 ? "+" : ""}${trendDiff}%`;
-    setBar("ind-trend-bar", ind.trend.score, 4);
+    setBar("ind-trend-bar", ind.trend.score, 5);
 }
 
 // ─── Render Placeholder Indicators (Blurred State) ─────────
 function renderPlaceholderIndicators() {
+    document.getElementById("ind-rs-label").textContent = "—";
+    document.getElementById("ind-rs-val").textContent = "••••";
+    document.getElementById("ind-rs-strength").textContent = "••••";
     document.getElementById("ind-ribbon-status").textContent = "—";
     document.getElementById("ind-ema8").textContent = "••••";
     document.getElementById("ind-ema21").textContent = "••••";

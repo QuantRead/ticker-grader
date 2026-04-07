@@ -119,9 +119,9 @@
             <div class="grade-details">
                 <div class="grade-verdict" id="res-verdict">Strong Setup — High Conviction</div>
                 <p class="grade-explain">
-                    This score is calculated using the same 6-factor conviction model
-                    that powers our automated trading system. It combines trend structure,
-                    volume confirmation, momentum, and volatility analysis.
+                    This score is calculated using the same 7-factor conviction model
+                    that powers our automated trading system. It combines relative strength,
+                    trend structure, volume confirmation, momentum, and volatility analysis.
                 </p>
             </div>
         </div>
@@ -160,6 +160,22 @@
             </div>
 
         <div class="indicators-grid">
+            <!-- RS vs SPY (highest weighted factor — matches trading agent) -->
+            <div class="indicator-card" id="ind-rs">
+                <div class="ind-header">
+                    <span class="ind-icon">💪</span>
+                    <span class="ind-title">RS vs SPY</span>
+                    <span class="ind-badge" id="ind-rs-label">NEUTRAL</span>
+                </div>
+                <div class="ind-values">
+                    <div class="ind-row"><span>20-Day Ratio</span><span id="ind-rs-val">—</span></div>
+                    <div class="ind-row"><span>Strength</span><span id="ind-rs-strength">—</span></div>
+                </div>
+                <div class="ind-bar-container">
+                    <div class="ind-bar" id="ind-rs-bar" style="width:0%"></div>
+                </div>
+            </div>
+
             <!-- EMA Ribbon -->
             <div class="indicator-card" id="ind-ribbon">
                 <div class="ind-header">
@@ -363,7 +379,7 @@
             <div class="upgrade-modal-icon">⚡</div>
             <h2>Unlock Ticker Grader Pro</h2>
             <p class="upgrade-modal-text">
-                Get unlimited conviction grades with the full 6-factor indicator breakdown.
+                Get unlimited conviction grades with the full 7-factor indicator breakdown.
                 See exactly what's driving each stock's score.
             </p>
             <div class="upgrade-modal-features">
