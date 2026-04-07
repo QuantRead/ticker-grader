@@ -236,6 +236,25 @@ def grade_ticker(symbol: str) -> dict:
         except Exception as e:
             print(f"[Intraday] {symbol}: fetch failed: {e}")
 
+        # ─── DATA SOURCE SWITCH ──────────────────────────────
+        # The agent (source of truth) uses 5-minute candles for ALL
+        # factor calculations. When intraday data is available, switch
+        # the primary data arrays to intraday so ribbon, RVOL, trend,
+        # and momentum all match the agent's assessment.
+        # Keep daily data for RS vs SPY (needs 21-day lookback).
+        daily_closes = closes  # Preserve for RS vs SPY
+        if data_source == "intraday_5m" and len(intra) >= 20:
+            try:
+                closes = intra["Close"].dropna().values.tolist()
+                volumes = intra["Volume"].dropna().values.tolist()
+                highs = intra["High"].dropna().values.tolist()
+                lows = intra["Low"].dropna().values.tolist()
+                current_price = closes[-1]
+                print(f"[Intraday] {symbol}: switched to 5m data ({len(closes)} candles)")
+            except Exception as e:
+                print(f"[Intraday] {symbol}: switch failed, using daily: {e}")
+
+
         # ─── 1. EMA Ribbon (8/21/34/55) ──────────────────────
         ema_8 = calculate_ema(closes, 8)
         ema_21 = calculate_ema(closes, 21)
@@ -372,11 +391,12 @@ def grade_ticker(symbol: str) -> dict:
             trend = "BELOW"
 
         # ─── 7. Relative Strength vs SPY (agent's #1 factor) ──
+        # Uses DAILY closes (not intraday) for 21-day comparison
         spy_closes = _get_spy_closes()
         rs_vs_spy = 1.0
         rs_label = "NEUTRAL"
-        if len(closes) >= 21 and len(spy_closes) >= 21:
-            stock_return = closes[-1] / max(closes[-21], 0.01)
+        if len(daily_closes) >= 21 and len(spy_closes) >= 21:
+            stock_return = daily_closes[-1] / max(daily_closes[-21], 0.01)
             spy_return = spy_closes[-1] / max(spy_closes[-21], 0.01)
             rs_vs_spy = stock_return / spy_return if spy_return > 0 else 1.0
 
