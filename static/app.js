@@ -94,6 +94,30 @@ function renderResults(data) {
         }, 100);
     });
 
+    // ─── RSI Penalty Warning ────────────────────────────────
+    const rsiBanner = document.getElementById("rsi-penalty-banner");
+    if (rsiBanner) {
+        rsiBanner.style.display = data.rsi_penalty ? "block" : "none";
+    }
+
+    // ─── Data Source Badge ──────────────────────────────────
+    const dsContainer = document.getElementById("grade-data-source");
+    const dsBadge = document.getElementById("data-source-badge");
+    if (dsContainer && dsBadge) {
+        if (data.data_source === "intraday_5m") {
+            dsBadge.textContent = "📡 LIVE — Intraday 5m Data";
+            dsBadge.style.background = "rgba(16,185,129,0.12)";
+            dsBadge.style.color = "#34d399";
+            dsBadge.style.border = "1px solid rgba(16,185,129,0.3)";
+        } else {
+            dsBadge.textContent = "📊 Daily Data (Market Closed)";
+            dsBadge.style.background = "rgba(156,163,175,0.12)";
+            dsBadge.style.color = "#9ca3af";
+            dsBadge.style.border = "1px solid rgba(156,163,175,0.3)";
+        }
+        dsContainer.style.display = "block";
+    }
+
     // ─── Usage Counter ──────────────────────────────────────
     updateUsageCounter(usage);
 

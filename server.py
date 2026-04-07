@@ -199,6 +199,36 @@ def grade_ticker(symbol: str) -> dict:
         current_price = closes[-1]
         prev_close = closes[-2] if len(closes) > 1 else current_price
 
+        # ─── Intraday Data (5-min) ────────────────────────────
+        # During market hours, fetch 5-minute candles for RSI and RVOL.
+        # This matches the Pine Script's candle-by-candle calculations.
+        # Off-hours: fall back to daily data (labeled accordingly).
+        intraday_rsi = None
+        intraday_rvol = None
+        data_source = "daily"
+        try:
+            intra = stock.history(period="1d", interval="5m")
+            if not intra.empty and len(intra) >= 15:
+                intra_closes = intra["Close"].values.tolist()
+                intra_volumes = intra["Volume"].values.tolist()
+                # RSI on 5-min candles (matches Pine Script)
+                intra_deltas = [intra_closes[i] - intra_closes[i-1] for i in range(1, len(intra_closes))]
+                intra_gains = [d if d > 0 else 0 for d in intra_deltas[-14:]]
+                intra_losses = [-d if d < 0 else 0 for d in intra_deltas[-14:]]
+                _ig = sum(intra_gains) / max(len(intra_gains), 1)
+                _il = sum(intra_losses) / max(len(intra_losses), 1)
+                _irs = _ig / _il if _il > 0 else 100
+                intraday_rsi = 100 - (100 / (1 + _irs))
+                # RVOL on 5-min candles
+                if len(intra_volumes) >= 2:
+                    _recent_vol = intra_volumes[-1]
+                    _avg_vol = sum(intra_volumes[:-1]) / max(len(intra_volumes) - 1, 1)
+                    if _avg_vol > 0:
+                        intraday_rvol = _recent_vol / _avg_vol
+                data_source = "intraday_5m"
+        except Exception as e:
+            print(f"Intraday fetch failed for {ticker}: {e}")
+
         # ─── 1. EMA Ribbon (8/21/34/55) ──────────────────────
         ema_8 = calculate_ema(closes, 8)
         ema_21 = calculate_ema(closes, 21)
@@ -244,20 +274,24 @@ def grade_ticker(symbol: str) -> dict:
             rvol_score = 1
 
         # ─── 3. RSI (14-period) ──────────────────────────────
-        deltas = np.diff(closes[-15:])
-        gains = np.where(deltas > 0, deltas, 0)
-        losses = np.where(deltas < 0, -deltas, 0)
-        avg_gain = np.mean(gains) if len(gains) else 0
-        avg_loss = np.mean(losses) if len(losses) else 0.001
-        rs = avg_gain / avg_loss if avg_loss > 0 else 100
-        rsi = 100 - (100 / (1 + rs))
+        # Use intraday RSI when available (matches Pine Script)
+        if intraday_rsi is not None:
+            rsi = intraday_rsi
+        else:
+            deltas = np.diff(closes[-15:])
+            gains = np.where(deltas > 0, deltas, 0)
+            losses = np.where(deltas < 0, -deltas, 0)
+            avg_gain = np.mean(gains) if len(gains) else 0
+            avg_loss = np.mean(losses) if len(losses) else 0.001
+            rs = avg_gain / avg_loss if avg_loss > 0 else 100
+            rsi = 100 - (100 / (1 + rs))
 
         if 40 <= rsi <= 65:
             rsi_score = 5  # Ideal momentum zone
         elif 30 <= rsi < 40 or 65 < rsi <= 75:
             rsi_score = 3
         elif rsi > 75:
-            rsi_score = 1  # Overbought
+            rsi_score = 1  # Overbought — matches agent RSI_EXHAUSTED
             rsi_label = "OVERBOUGHT"
         elif rsi < 30:
             rsi_score = 1  # Oversold
@@ -381,6 +415,16 @@ def grade_ticker(symbol: str) -> dict:
         # Scale to 0-100
         final_score = round((raw_score / 5) * 100)
 
+        # ─── RSI OVERBOUGHT HARD PENALTY ──────────────────────
+        # Matches the agent's RSI_EXHAUSTED gate and Pine Script behavior.
+        # If RSI > 75, cap the grade at D regardless of other factors.
+        # This prevents the Ticker Grader from showing "B" while the
+        # Pine Script shows "D" on the same stock (RIOT incident).
+        rsi_penalty_applied = False
+        if rsi > 75:
+            final_score = min(final_score, 40)  # Cap at D territory
+            rsi_penalty_applied = True
+
         if final_score >= 80:
             grade = "A"
             verdict = "Strong Setup — High Conviction"
@@ -392,7 +436,10 @@ def grade_ticker(symbol: str) -> dict:
             verdict = "Neutral — Wait for Confirmation"
         elif final_score >= 35:
             grade = "D"
-            verdict = "Weak — Proceed with Caution"
+            if rsi_penalty_applied:
+                verdict = "RSI Overextended — Wait for Pullback"
+            else:
+                verdict = "Weak — Proceed with Caution"
         else:
             grade = "F"
             verdict = "Avoid — Unfavorable Conditions"
@@ -475,6 +522,8 @@ def grade_ticker(symbol: str) -> dict:
                     "label": rs_label,
                 },
             },
+            "data_source": data_source,
+            "rsi_penalty": rsi_penalty_applied,
             "timestamp": datetime.datetime.now().isoformat(),
         }
 
