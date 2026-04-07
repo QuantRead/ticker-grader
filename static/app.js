@@ -241,6 +241,70 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeUpgradeModal();
 });
 
+// ─── Pro Verification ─────────────────────────────────────────
+function toggleVerifyForm() {
+    const form = document.getElementById("verify-pro-form");
+    const toggle = document.getElementById("verify-pro-toggle");
+    if (form.style.display === "none") {
+        form.style.display = "block";
+        toggle.style.display = "none";
+        document.getElementById("verify-email-input").focus();
+    } else {
+        form.style.display = "none";
+        toggle.style.display = "block";
+    }
+}
+
+async function verifyPro() {
+    const emailInput = document.getElementById("verify-email-input");
+    const status = document.getElementById("verify-status");
+    const btn = document.getElementById("verify-submit-btn");
+    const email = emailInput.value.trim();
+
+    if (!email || !email.includes("@")) {
+        status.textContent = "Please enter a valid email address.";
+        status.className = "verify-status error";
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Checking...";
+    status.textContent = "";
+
+    try {
+        const res = await fetch(`${API_BASE}/api/verify-pro`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+        });
+
+        const data = await res.json();
+
+        if (data.is_pro) {
+            status.textContent = "✅ Pro verified! Reloading...";
+            status.className = "verify-status success";
+            setTimeout(() => window.location.reload(), 1200);
+        } else {
+            status.textContent = data.message || "No active subscription found.";
+            status.className = "verify-status error";
+            btn.disabled = false;
+            btn.textContent = "Verify";
+        }
+    } catch (err) {
+        status.textContent = "Verification failed. Please try again.";
+        status.className = "verify-status error";
+        btn.disabled = false;
+        btn.textContent = "Verify";
+    }
+}
+
+// Allow Enter key in verify email input
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && document.activeElement?.id === "verify-email-input") {
+        verifyPro();
+    }
+});
+
 // ─── Helpers ───────────────────────────────────────────────_
 
 function setLoading(loading) {

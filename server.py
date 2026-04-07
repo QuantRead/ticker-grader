@@ -58,6 +58,23 @@ except Exception as e:
 _mem_tracker: dict = defaultdict(lambda: {"date": "", "count": 0, "tickers": []})
 
 _USAGE_TTL = 86400  # 24 hours in seconds
+_PRO_TTL = 2592000  # 30 days in seconds
+
+# ─── Stripe Integration (Pro verification) ───────────────────
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY")
+TICKER_GRADER_PRO_PRICE_ID = "price_1TJIXV7XRFCkxuHsXEJykfwo"
+_STRIPE_AVAILABLE = False
+
+if STRIPE_SECRET_KEY:
+    try:
+        import stripe
+        stripe.api_key = STRIPE_SECRET_KEY
+        _STRIPE_AVAILABLE = True
+        print("✅ Stripe API connected — Pro verification enabled")
+    except Exception as e:
+        print(f"⚠️  Stripe setup failed ({e}) — Pro verification disabled")
+else:
+    print("⚠️  STRIPE_SECRET_KEY not set — Pro verification disabled")
 
 
 def _redis_key(ip: str) -> str:
@@ -107,6 +124,27 @@ def increment_usage(ip: str, ticker: str) -> dict:
         _mem_tracker[ip] = record
 
     return record
+
+
+def _get_client_ip(request: Request) -> str:
+    """Extract the real client IP, handling Render's reverse proxy."""
+    client_ip = request.client.host if request.client else "unknown"
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    return client_ip
+
+
+def _check_pro(ip: str) -> bool:
+    """Check if an IP has verified Pro status in Redis."""
+    if _REDIS_AVAILABLE:
+        try:
+            pro_email = _redis_client.get(f"pro:{ip}")
+            if pro_email:
+                return True
+        except Exception:
+            pass
+    return False
 
 
 # ─── Grading Engine ──────────────────────────────────────────────
@@ -388,14 +426,10 @@ async def api_grade(symbol: str, request: Request):
         raise HTTPException(status_code=400, detail="Invalid ticker symbol")
 
     # ─── Usage tracking ──────────────────────────────────────
-    client_ip = request.client.host if request.client else "unknown"
-    # Check for proxy headers (Render uses reverse proxy)
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        client_ip = forwarded.split(",")[0].strip()
+    client_ip = _get_client_ip(request)
 
     record = get_usage(client_ip)
-    is_pro = False  # TODO: check subscription status via Stripe/Whop
+    is_pro = _check_pro(client_ip)
 
     remaining = max(0, FREE_DAILY_LIMIT - record["count"])
     limit_reached = remaining <= 0 and not is_pro
@@ -432,6 +466,62 @@ async def api_grade(symbol: str, request: Request):
     }
 
     return JSONResponse(content=result)
+
+
+@app.post("/api/verify-pro")
+async def verify_pro(request: Request):
+    """Verify Pro subscription status by checking Stripe for the user's email."""
+    if not _STRIPE_AVAILABLE:
+        return JSONResponse(
+            status_code=503,
+            content={"is_pro": False, "message": "Subscription verification is temporarily unavailable."}
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid request body")
+
+    email = body.get("email", "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address")
+
+    client_ip = _get_client_ip(request)
+
+    try:
+        # Step 1: Find Stripe customer(s) by email
+        customers = stripe.Customer.list(email=email, limit=5)
+
+        for customer in customers.data:
+            # Step 2: Check for active subscription to Ticker Grader Pro
+            subscriptions = stripe.Subscription.list(
+                customer=customer.id,
+                price=TICKER_GRADER_PRO_PRICE_ID,
+                status="active",
+                limit=1,
+            )
+            if subscriptions.data:
+                # Active subscription found — cache Pro status in Redis
+                if _REDIS_AVAILABLE:
+                    try:
+                        _redis_client.set(f"pro:{client_ip}", email, ex=_PRO_TTL)
+                    except Exception as e:
+                        print(f"⚠️  Redis write failed for Pro cache ({e})")
+
+                print(f"✅ Pro verified: {email} → {client_ip}")
+                return JSONResponse(content={"is_pro": True, "email": email})
+
+        return JSONResponse(content={
+            "is_pro": False,
+            "message": "No active Ticker Grader Pro subscription found for this email."
+        })
+
+    except Exception as e:
+        print(f"❌ Stripe verification error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"is_pro": False, "message": "Verification failed. Please try again."}
+        )
 
 
 # ─── Static Files & Frontend ────────────────────────────────────

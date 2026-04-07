@@ -144,6 +144,18 @@
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                     </a>
                     <span class="blur-upgrade-sub">Cancel anytime · Resets daily at midnight</span>
+
+                    <!-- Pro Verification -->
+                    <div class="verify-pro-section" id="verify-pro-section">
+                        <button class="verify-pro-toggle" id="verify-pro-toggle" onclick="toggleVerifyForm()">Already a subscriber? Verify your email →</button>
+                        <div class="verify-pro-form" id="verify-pro-form" style="display:none;">
+                            <div class="verify-input-row">
+                                <input type="email" id="verify-email-input" class="verify-email-input" placeholder="Enter your Stripe email" autocomplete="email">
+                                <button class="verify-submit-btn" id="verify-submit-btn" onclick="verifyPro()">Verify</button>
+                            </div>
+                            <div class="verify-status" id="verify-status"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 

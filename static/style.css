@@ -1034,6 +1034,94 @@ body {
     color: var(--text-muted);
 }
 
+/* ─── Pro Verification (Paywall) ────────────────────────── */
+
+.verify-pro-section {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.verify-pro-toggle {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: color 0.2s;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.verify-pro-toggle:hover {
+    color: var(--accent-bright);
+}
+
+.verify-input-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.verify-email-input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: var(--sans);
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.verify-email-input:focus {
+    border-color: var(--accent);
+}
+
+.verify-email-input::placeholder {
+    color: var(--text-muted);
+}
+
+.verify-submit-btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent-bright));
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.verify-submit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px var(--accent-glow);
+}
+
+.verify-submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.verify-status {
+    font-size: 12px;
+    margin-top: 8px;
+    min-height: 18px;
+}
+
+.verify-status.success {
+    color: var(--green);
+}
+
+.verify-status.error {
+    color: var(--red);
+}
+
 /* ─── Freemium: Upgrade Modal ───────────────────────────── */
 
 .upgrade-modal {
