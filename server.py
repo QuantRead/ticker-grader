@@ -262,20 +262,46 @@ def grade_ticker(symbol: str) -> dict:
         ema_55 = calculate_ema(closes, 55)
 
         # Check alignment: 8 > 21 > 34 > 55 = BULL
+        # Gap-aware: If EMAs are within 0.1% of each other, treat as aligned.
+        # This prevents false BEAR grades on trending stocks where EMAs
+        # differ by pennies (e.g. AMD: EMA8=$231.24 vs EMA21=$231.33 = 0.04%).
         e8, e21, e34, e55 = ema_8[-1], ema_21[-1], ema_34[-1], ema_55[-1]
+
+        def _near(a, b, pct=0.001):
+            """True if a and b are within pct of each other."""
+            return abs(a - b) / max(abs(b), 1e-9) < pct
+
+        # Count how many consecutive pairs are in bull order (or near-equal)
+        _pairs_bull = sum([
+            e8 > e21 or _near(e8, e21),
+            e21 > e34 or _near(e21, e34),
+            e34 > e55 or _near(e34, e55),
+        ])
+        _pairs_bear = sum([
+            e8 < e21 or _near(e8, e21),
+            e21 < e34 or _near(e21, e34),
+            e34 < e55 or _near(e34, e55),
+        ])
 
         if e8 > e21 > e34 > e55:
             ribbon_status = "BULL"
             ribbon_score = 5
+        elif _pairs_bull >= 3 and e8 > e55:
+            # Near-perfect alignment (gaps < 0.1%) — still bullish
+            ribbon_status = "BULL"
+            ribbon_score = 4
         elif e8 > e21 > e34:
             ribbon_status = "BULL"
             ribbon_score = 4
-        elif e8 > e21:
+        elif e8 > e21 or (_near(e8, e21) and e8 > e55):
             ribbon_status = "NEUTRAL"
             ribbon_score = 3
         elif e8 < e21 < e34 < e55:
             ribbon_status = "BEAR"
             ribbon_score = 0
+        elif _pairs_bear >= 3 and e8 < e55:
+            ribbon_status = "BEAR"
+            ribbon_score = 1
         elif e8 < e21 < e34:
             ribbon_status = "BEAR"
             ribbon_score = 1
@@ -334,16 +360,27 @@ def grade_ticker(symbol: str) -> dict:
         else:
             rsi_label = "NEUTRAL"
 
-        # ─── 4. ATR (14-period, volatility) ──────────────────
+        # ─── 4. ATR (14-period, Wilder's RMA) ─────────────────
+        # Switched from simple mean to Wilder's smoothing to match
+        # TradingView's ta.atr(14) and the trading agent's computation.
         trs = []
-        for i in range(1, min(15, len(closes))):
-            tr = max(
-                highs[-(15-i)] - lows[-(15-i)],
-                abs(highs[-(15-i)] - closes[-(15-i+1)]),
-                abs(lows[-(15-i)] - closes[-(15-i+1)])
-            )
-            trs.append(tr)
-        atr = np.mean(trs) if trs else 0
+        if len(closes) >= 2:
+            trs.append(highs[0] - lows[0])  # First TR = High - Low
+            for i in range(1, len(closes)):
+                tr = max(
+                    highs[i] - lows[i],
+                    abs(highs[i] - closes[i-1]),
+                    abs(lows[i] - closes[i-1])
+                )
+                trs.append(tr)
+        if len(trs) >= 14:
+            atr = sum(trs[:14]) / 14  # First ATR = SMA
+            for tr_val in trs[14:]:
+                atr = (atr * 13 + tr_val) / 14  # Wilder's smoothing
+        elif trs:
+            atr = np.mean(trs)
+        else:
+            atr = 0
         atr_pct = (atr / current_price) * 100 if current_price > 0 else 0
 
         if 0.5 <= atr_pct <= 3.0:
@@ -486,6 +523,32 @@ def grade_ticker(symbol: str) -> dict:
             sector = "—"
             market_cap = 0
 
+        # ─── SECTOR HEADWIND CHECK ────────────────────────────
+        # If the stock's sector ETF is down > 1% today, warn subscribers.
+        # This is a lightweight version of the agent's macro alignment.
+        # Maps GICS sectors to their SPDR ETFs.
+        sector_headwind = False
+        sector_etf_change = None
+        _sector_etf_map = {
+            "Technology": "XLK", "Healthcare": "XLV", "Financial Services": "XLF",
+            "Financials": "XLF", "Consumer Cyclical": "XLY", "Consumer Defensive": "XLP",
+            "Energy": "XLE", "Industrials": "XLI", "Basic Materials": "XLB",
+            "Real Estate": "XLRE", "Utilities": "XLU", "Communication Services": "XLC",
+        }
+        _etf_sym = _sector_etf_map.get(sector)
+        if _etf_sym:
+            try:
+                _etf = yf.Ticker(_etf_sym)
+                _etf_hist = _etf.history(period="2d", interval="1d")
+                if not _etf_hist.empty and len(_etf_hist) >= 2:
+                    _etf_prev = _etf_hist["Close"].values[-2]
+                    _etf_now = _etf_hist["Close"].values[-1]
+                    sector_etf_change = round(((_etf_now - _etf_prev) / _etf_prev) * 100, 2)
+                    if sector_etf_change < -1.0:
+                        sector_headwind = True
+            except Exception as e:
+                print(f"[Sector] {symbol}: ETF check failed for {_etf_sym}: {e}")
+
         # Format market cap
         if market_cap >= 1_000_000_000_000:
             mc_str = f"${market_cap / 1_000_000_000_000:.1f}T"
@@ -549,6 +612,11 @@ def grade_ticker(symbol: str) -> dict:
                     "label": rs_label,
                 },
             },
+            "sector_headwind": {
+                "active": sector_headwind,
+                "sector_etf": _etf_sym if _etf_sym else None,
+                "etf_change_pct": sector_etf_change,
+            } if _etf_sym else None,
             "data_source": data_source,
             "rsi_penalty": rsi_penalty_applied,
             "timestamp": datetime.datetime.now().isoformat(),
