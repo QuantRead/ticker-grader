@@ -457,16 +457,17 @@ def grade_ticker(symbol: str) -> dict:
         # Weights aligned with the trading agent's scanner config (scanner.yaml):
         # Scanner: RS=20%, ATR=20%, Liquidity=15%, Sentiment=15%, Trend=15%, OrderFlow=15%
         # TG:      RS=20%, Ribbon=20%, RVOL=15%, Trend=15%, RSI=10%, ATR=20%
-        # Weights synced with live scanner (scanner.yaml) as of 2026-04-12
-        # RS reduced 0.30→0.20, ATR raised 0.10→0.20 to prioritize
-        # trigger crossing over relative benchmark performance.
+        # Weights synced with live scanner (scanner.yaml) as of 2026-04-13
+        # RS restored to 0.30 (dominant factor), ATR back to 0.10.
+        # Base score must be the PRIMARY ranking signal; bonuses are
+        # bounded multipliers in the live agent, not additive.
         weights = {
-            "rs_vs_spy": 0.20,
+            "rs_vs_spy": 0.30,
             "ribbon": 0.20,
-            "rvol": 0.15,
+            "rvol": 0.10,
             "trend": 0.15,
             "rsi": 0.10,
-            "atr": 0.20,
+            "atr": 0.15,
         }
 
         raw_score = (
