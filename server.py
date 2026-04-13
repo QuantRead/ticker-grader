@@ -454,17 +454,19 @@ def grade_ticker(symbol: str) -> dict:
             rs_label = "WEAK"
 
         # ─── COMPOSITE GRADE ─────────────────────────────────
-        # Weights aligned with the trading agent's public factors:
-        # Agent: RS=35%, Liquidity=20%, Trend=15%, ATR=10%
-        # TG:    RS=30%, Ribbon=20%, RVOL=15%, Trend=15%, RSI=10%, ATR=10%
-        # (Liquidity omitted — requires bid/ask spread, not available via yfinance)
+        # Weights aligned with the trading agent's scanner config (scanner.yaml):
+        # Scanner: RS=20%, ATR=20%, Liquidity=15%, Sentiment=15%, Trend=15%, OrderFlow=15%
+        # TG:      RS=20%, Ribbon=20%, RVOL=15%, Trend=15%, RSI=10%, ATR=20%
+        # Weights synced with live scanner (scanner.yaml) as of 2026-04-12
+        # RS reduced 0.30→0.20, ATR raised 0.10→0.20 to prioritize
+        # trigger crossing over relative benchmark performance.
         weights = {
-            "rs_vs_spy": 0.30,
+            "rs_vs_spy": 0.20,
             "ribbon": 0.20,
             "rvol": 0.15,
             "trend": 0.15,
             "rsi": 0.10,
-            "atr": 0.10,
+            "atr": 0.20,
         }
 
         raw_score = (
