@@ -205,6 +205,14 @@ def grade_ticker(symbol: str) -> dict:
         current_price = daily_closes[-1]
         prev_close = daily_closes[-2] if len(daily_closes) > 1 else current_price
 
+        # Override with live price (includes pre/post market)
+        try:
+            live_price = ticker.fast_info.get("last_price", None)
+            if live_price and live_price > 0:
+                current_price = float(live_price)
+        except Exception:
+            pass  # Fall back to daily close
+
         # ─── 1. DAILY ATR (Wilder's 14-period) ──────────────────────
         trs = []
         trs.append(daily_highs[0] - daily_lows[0])
