@@ -380,7 +380,7 @@ def grade_ticker(symbol: str) -> dict:
         # ─── 8. 1H EMA RIBBON (8/21/34) — Pine: request.security("60") ──
         ribbon_source = "daily"
         try:
-            hourly = yf.Ticker(symbol).history(period="5d", interval="1h")
+            hourly = yf.Ticker(symbol).history(period="1mo", interval="1h")
             if not hourly.empty and len(hourly) >= 35:
                 h_closes = hourly["Close"].dropna().values.tolist()
                 h_highs = hourly["High"].dropna().values.tolist()
