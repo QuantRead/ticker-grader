@@ -281,17 +281,11 @@ def grade_ticker(symbol: str) -> dict:
         else:
             cloud_status = "BELOW ZONE"
 
-        # ─── 4. ICHIMOKU BASELINE (Kijun-sen, 26-period) ────────────
-        if len(daily_highs) >= 26 and len(daily_lows) >= 26:
-            ichi_high = max(daily_highs[-26:])
-            ichi_low = min(daily_lows[-26:])
-            ichimoku_base = (ichi_high + ichi_low) / 2.0
-            above_ichimoku = current_price > ichimoku_base
-        else:
-            ichimoku_base = current_price
-            above_ichimoku = True
-
-        ichimoku_score = 5 if above_ichimoku else 1
+        # ─── 4. ICHIMOKU BASELINE (Moved to 1H section below) ───────
+        # Default fallbacks
+        ichimoku_base = current_price
+        above_ichimoku = True
+        ichimoku_score = 5
 
         # ─── 5. RS vs SPY (21-day, DAILY data only) ─────────────────
         spy_closes = _get_spy_closes()
@@ -389,11 +383,23 @@ def grade_ticker(symbol: str) -> dict:
             hourly = yf.Ticker(symbol).history(period="5d", interval="1h")
             if not hourly.empty and len(hourly) >= 35:
                 h_closes = hourly["Close"].dropna().values.tolist()
+                h_highs = hourly["High"].dropna().values.tolist()
+                h_lows = hourly["Low"].dropna().values.tolist()
+                
                 ema_8 = calculate_ema(h_closes, 8)
                 ema_21 = calculate_ema(h_closes, 21)
                 ema_34 = calculate_ema(h_closes, 34)
                 e8, e21, e34 = ema_8[-1], ema_21[-1], ema_34[-1]
                 ribbon_source = "1h"
+
+                # Calculate Ichimoku on 1H data (26 hourly periods = ~3.7 days)
+                if len(h_highs) >= 26 and len(h_lows) >= 26:
+                    ichi_high = max(h_highs[-26:])
+                    ichi_low = min(h_lows[-26:])
+                    ichimoku_base = (ichi_high + ichi_low) / 2.0
+                    above_ichimoku = current_price > ichimoku_base
+                    ichimoku_score = 5 if above_ichimoku else 1
+
             else:
                 raise ValueError("Insufficient 1H data")
         except Exception as e:
@@ -402,6 +408,14 @@ def grade_ticker(symbol: str) -> dict:
             ema_21 = calculate_ema(daily_closes, 21)
             ema_34 = calculate_ema(daily_closes, 34)
             e8, e21, e34 = ema_8[-1], ema_21[-1], ema_34[-1]
+            
+            # Daily fallback for Ichimoku
+            if len(daily_highs) >= 26 and len(daily_lows) >= 26:
+                ichi_high = max(daily_highs[-26:])
+                ichi_low = min(daily_lows[-26:])
+                ichimoku_base = (ichi_high + ichi_low) / 2.0
+                above_ichimoku = current_price > ichimoku_base
+                ichimoku_score = 5 if above_ichimoku else 1
 
         # Ribbon scoring (includes trend — slope check merged in)
         ema_slope_positive = len(ema_8) >= 3 and ema_8[-1] > ema_8[-3]
