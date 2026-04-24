@@ -48,11 +48,11 @@ try:
         _redis_client = Redis(url=_upstash_url, token=_upstash_token)
         _redis_client.ping()  # Verify connection at startup
         _REDIS_AVAILABLE = True
-        print("✅ Upstash Redis connected — usage tracking is persistent")
+        print("[OK] Upstash Redis connected -- usage tracking is persistent")
     else:
-        print("⚠️  UPSTASH_REDIS env vars not set — falling back to in-memory usage tracking")
+        print("[WARN] UPSTASH_REDIS env vars not set -- falling back to in-memory usage tracking")
 except Exception as e:
-    print(f"⚠️  Redis connection failed ({e}) — falling back to in-memory usage tracking")
+    print(f"[WARN] Redis connection failed ({e}) -- falling back to in-memory usage tracking")
 
 # In-memory fallback (same as before, used only when Redis is unavailable)
 _mem_tracker: dict = defaultdict(lambda: {"date": "", "count": 0, "tickers": []})
@@ -70,11 +70,11 @@ if STRIPE_SECRET_KEY:
         import stripe
         stripe.api_key = STRIPE_SECRET_KEY
         _STRIPE_AVAILABLE = True
-        print("✅ Stripe API connected — Pro verification enabled")
+        print("[OK] Stripe API connected -- Pro verification enabled")
     except Exception as e:
-        print(f"⚠️  Stripe setup failed ({e}) — Pro verification disabled")
+        print(f"[WARN] Stripe setup failed ({e}) -- Pro verification disabled")
 else:
-    print("⚠️  STRIPE_SECRET_KEY not set — Pro verification disabled")
+    print("[WARN] STRIPE_SECRET_KEY not set -- Pro verification disabled")
 
 
 def _redis_key(ip: str) -> str:
@@ -94,7 +94,7 @@ def get_usage(ip: str) -> dict:
                 return {"date": today, "count": data.get("count", 0), "tickers": data.get("tickers", [])}
             return {"date": today, "count": 0, "tickers": []}
         except Exception as e:
-            print(f"⚠️  Redis read failed ({e}) — using in-memory fallback")
+            print(f"[WARN] Redis read failed ({e}) -- using in-memory fallback")
 
     # In-memory fallback
     record = _mem_tracker[ip]
@@ -117,7 +117,7 @@ def increment_usage(ip: str, ticker: str) -> dict:
             payload = json.dumps({"count": record["count"], "tickers": record["tickers"]})
             _redis_client.set(_redis_key(ip), payload, ex=_USAGE_TTL)
         except Exception as e:
-            print(f"⚠️  Redis write failed ({e}) — count stored in-memory only")
+            print(f"[WARN] Redis write failed ({e}) -- count stored in-memory only")
             _mem_tracker[ip] = record
 
     else:
@@ -182,7 +182,11 @@ def calculate_ema(prices, period):
 def grade_ticker(symbol: str) -> dict:
     """
     Pull market data and calculate a QuantRead-style conviction grade.
-    Returns a rich analysis object.
+    Aligned with Pine Script (saty_conviction_histogram.pine) factor model.
+
+    Architecture: Additive base score + multiplicative penalty gates.
+    Factors: RS vs SPY, 1H EMA Ribbon, RVOL, RSI, ATR Expansion, Ichimoku.
+    Penalties: Cloud position, Ichimoku gate, RSI exhaustion, Catalyst bonus.
     """
     try:
         ticker = yf.Ticker(symbol.upper())
@@ -191,128 +195,170 @@ def grade_ticker(symbol: str) -> dict:
         if hist.empty or len(hist) < 30:
             return None
 
-        closes = hist["Close"].values.tolist()
-        volumes = hist["Volume"].values.tolist()
-        highs = hist["High"].values.tolist()
-        lows = hist["Low"].values.tolist()
+        # ── DAILY DATA (preserved for daily-dependent factors) ────────
+        daily_closes = hist["Close"].values.tolist()
+        daily_volumes = hist["Volume"].values.tolist()
+        daily_highs = hist["High"].values.tolist()
+        daily_lows = hist["Low"].values.tolist()
+        daily_opens = hist["Open"].values.tolist()
 
-        current_price = closes[-1]
-        prev_close = closes[-2] if len(closes) > 1 else current_price
+        current_price = daily_closes[-1]
+        prev_close = daily_closes[-2] if len(daily_closes) > 1 else current_price
 
-        # ─── Intraday Data (5-min) ────────────────────────────
-        # During market hours, fetch 5-minute candles for RSI and RVOL.
-        # This matches the Pine Script's candle-by-candle calculations.
-        # Off-hours: fall back to daily data (labeled accordingly).
+        # ─── 1. DAILY ATR (Wilder's 14-period) ──────────────────────
+        trs = []
+        trs.append(daily_highs[0] - daily_lows[0])
+        for i in range(1, len(daily_closes)):
+            tr = max(
+                daily_highs[i] - daily_lows[i],
+                abs(daily_highs[i] - daily_closes[i-1]),
+                abs(daily_lows[i] - daily_closes[i-1])
+            )
+            trs.append(tr)
+
+        if len(trs) >= 14:
+            daily_atr = sum(trs[:14]) / 14
+            for tr_val in trs[14:]:
+                daily_atr = (daily_atr * 13 + tr_val) / 14
+        elif trs:
+            daily_atr = np.mean(trs)
+        else:
+            daily_atr = 0
+
+        atr_pct = (daily_atr / current_price) * 100 if current_price > 0 else 0
+
+        # ─── 2. ATR EXPANSION RATIO (Pine: ATR / SMA(ATR, 20)) ──────
+        atr_series = []
+        if len(trs) >= 14:
+            _running = sum(trs[:14]) / 14
+            atr_series.append(_running)
+            for tr_val in trs[14:]:
+                _running = (_running * 13 + tr_val) / 14
+                atr_series.append(_running)
+
+        if len(atr_series) >= 20:
+            atr_sma_20 = np.mean(atr_series[-20:])
+            atr_ratio = daily_atr / atr_sma_20 if atr_sma_20 > 0 else 1.0
+        else:
+            atr_ratio = 1.0
+
+        if atr_ratio >= 1.4:
+            atr_score = 5
+        elif atr_ratio >= 1.25:
+            atr_score = 4
+        elif atr_ratio >= 1.0:
+            atr_score = 3
+        elif atr_ratio >= 0.9:
+            atr_score = 2
+        else:
+            atr_score = 1
+
+        # ─── 3. SATY ATR CLOUD (Pine's strongest factor: 1.618x) ────
+        today_open = daily_opens[-1]
+        upper_cloud_lo = today_open + (1.25 * daily_atr)
+        upper_cloud_hi = today_open + (1.50 * daily_atr)
+        lower_cloud_hi = today_open - (1.25 * daily_atr)
+        lower_cloud_lo = today_open - (1.50 * daily_atr)
+
+        in_upper_cloud = upper_cloud_lo <= current_price <= upper_cloud_hi
+        in_lower_cloud = lower_cloud_lo <= current_price <= lower_cloud_hi
+        in_cloud = in_upper_cloud or in_lower_cloud
+
+        if in_cloud:
+            cloud_status = "IN ZONE"
+        elif current_price > upper_cloud_hi:
+            cloud_status = "EXTENDED"
+        elif current_price < lower_cloud_lo:
+            cloud_status = "EXTENDED SHORT"
+        else:
+            cloud_status = "BELOW ZONE"
+
+        # ─── 4. ICHIMOKU BASELINE (Kijun-sen, 26-period) ────────────
+        if len(daily_highs) >= 26 and len(daily_lows) >= 26:
+            ichi_high = max(daily_highs[-26:])
+            ichi_low = min(daily_lows[-26:])
+            ichimoku_base = (ichi_high + ichi_low) / 2.0
+            above_ichimoku = current_price > ichimoku_base
+        else:
+            ichimoku_base = current_price
+            above_ichimoku = True
+
+        ichimoku_score = 5 if above_ichimoku else 1
+
+        # ─── 5. RS vs SPY (21-day, DAILY data only) ─────────────────
+        spy_closes = _get_spy_closes()
+        rs_vs_spy = 1.0
+        rs_label = "NEUTRAL"
+        if len(daily_closes) >= 21 and len(spy_closes) >= 21:
+            stock_return = daily_closes[-1] / max(daily_closes[-21], 0.01)
+            spy_return = spy_closes[-1] / max(spy_closes[-21], 0.01)
+            rs_vs_spy = stock_return / spy_return if spy_return > 0 else 1.0
+
+        if rs_vs_spy >= 1.15:
+            rs_score, rs_label = 5, "LEADER"
+        elif rs_vs_spy >= 1.05:
+            rs_score, rs_label = 4, "STRONG"
+        elif rs_vs_spy >= 0.95:
+            rs_score, rs_label = 3, "NEUTRAL"
+        elif rs_vs_spy >= 0.85:
+            rs_score, rs_label = 2, "LAGGING"
+        else:
+            rs_score, rs_label = 1, "WEAK"
+
+        # ─── 6. INTRADAY DATA (5m) — RSI & RVOL ────────────────────
         intraday_rsi = None
         intraday_rvol = None
         data_source = "daily"
+
         try:
-            # Fresh ticker object avoids session/cache conflicts with the daily fetch
             intra_ticker = yf.Ticker(symbol)
             intra = intra_ticker.history(period="5d", interval="5m", prepost=False)
-            print(f"[Intraday] {symbol}: {len(intra)} candles fetched")
             if not intra.empty and len(intra) >= 5:
                 intra_closes = intra["Close"].dropna().values.tolist()
                 intra_volumes = intra["Volume"].dropna().values.tolist()
                 if len(intra_closes) >= 15:
-                    # RSI on 5-min candles (matches Pine Script)
                     intra_deltas = [intra_closes[i] - intra_closes[i-1] for i in range(1, len(intra_closes))]
                     intra_gains = [d if d > 0 else 0 for d in intra_deltas[-14:]]
                     intra_losses = [-d if d < 0 else 0 for d in intra_deltas[-14:]]
                     _ig = sum(intra_gains) / max(len(intra_gains), 1)
                     _il = sum(intra_losses) / max(len(intra_losses), 1)
-                    _irs = _ig / _il if _il > 0 else 100
-                    intraday_rsi = 100 - (100 / (1 + _irs))
-                    print(f"[Intraday] {symbol}: RSI={intraday_rsi:.1f}")
-                # RVOL on 5-min candles
+                    intraday_rsi = 100 - (100 / (1 + _ig / _il)) if _il > 0 else 100.0
                 if len(intra_volumes) >= 2:
                     _recent_vol = intra_volumes[-1]
                     _avg_vol = sum(intra_volumes[:-1]) / max(len(intra_volumes) - 1, 1)
                     if _avg_vol > 0:
                         intraday_rvol = _recent_vol / _avg_vol
                 data_source = "intraday_5m"
-            else:
-                print(f"[Intraday] {symbol}: insufficient candles ({len(intra)}), using daily")
         except Exception as e:
             print(f"[Intraday] {symbol}: fetch failed: {e}")
 
-        # ─── DATA SOURCE SWITCH ──────────────────────────────
-        # The agent (source of truth) uses 5-minute candles for ALL
-        # factor calculations. When intraday data is available, switch
-        # the primary data arrays to intraday so ribbon, RVOL, trend,
-        # and momentum all match the agent's assessment.
-        # Keep daily data for RS vs SPY (needs 21-day lookback).
-        daily_closes = closes  # Preserve for RS vs SPY
-        if data_source == "intraday_5m" and len(intra) >= 20:
-            try:
-                closes = intra["Close"].dropna().values.tolist()
-                volumes = intra["Volume"].dropna().values.tolist()
-                highs = intra["High"].dropna().values.tolist()
-                lows = intra["Low"].dropna().values.tolist()
-                current_price = closes[-1]
-                print(f"[Intraday] {symbol}: switched to 5m data ({len(closes)} candles)")
-            except Exception as e:
-                print(f"[Intraday] {symbol}: switch failed, using daily: {e}")
-
-
-        # ─── 1. EMA Ribbon (8/21/34/55) ──────────────────────
-        ema_8 = calculate_ema(closes, 8)
-        ema_21 = calculate_ema(closes, 21)
-        ema_34 = calculate_ema(closes, 34)
-        ema_55 = calculate_ema(closes, 55)
-
-        # Check alignment: 8 > 21 > 34 > 55 = BULL
-        # Gap-aware: If EMAs are within 0.1% of each other, treat as aligned.
-        # This prevents false BEAR grades on trending stocks where EMAs
-        # differ by pennies (e.g. AMD: EMA8=$231.24 vs EMA21=$231.33 = 0.04%).
-        e8, e21, e34, e55 = ema_8[-1], ema_21[-1], ema_34[-1], ema_55[-1]
-
-        def _near(a, b, pct=0.001):
-            """True if a and b are within pct of each other."""
-            return abs(a - b) / max(abs(b), 1e-9) < pct
-
-        # Count how many consecutive pairs are in bull order (or near-equal)
-        _pairs_bull = sum([
-            e8 > e21 or _near(e8, e21),
-            e21 > e34 or _near(e21, e34),
-            e34 > e55 or _near(e34, e55),
-        ])
-        _pairs_bear = sum([
-            e8 < e21 or _near(e8, e21),
-            e21 < e34 or _near(e21, e34),
-            e34 < e55 or _near(e34, e55),
-        ])
-
-        if e8 > e21 > e34 > e55:
-            ribbon_status = "BULL"
-            ribbon_score = 5
-        elif _pairs_bull >= 3 and e8 > e55:
-            # Near-perfect alignment (gaps < 0.1%) — still bullish
-            ribbon_status = "BULL"
-            ribbon_score = 4
-        elif e8 > e21 > e34:
-            ribbon_status = "BULL"
-            ribbon_score = 4
-        elif e8 > e21 or (_near(e8, e21) and e8 > e55):
-            ribbon_status = "NEUTRAL"
-            ribbon_score = 3
-        elif e8 < e21 < e34 < e55:
-            ribbon_status = "BEAR"
-            ribbon_score = 0
-        elif _pairs_bear >= 3 and e8 < e55:
-            ribbon_status = "BEAR"
-            ribbon_score = 1
-        elif e8 < e21 < e34:
-            ribbon_status = "BEAR"
-            ribbon_score = 1
+        # RSI
+        if intraday_rsi is not None:
+            rsi = intraday_rsi
         else:
-            ribbon_status = "NEUTRAL"
-            ribbon_score = 2
+            deltas = np.diff(daily_closes[-15:])
+            gains = np.where(deltas > 0, deltas, 0)
+            losses = np.where(deltas < 0, -deltas, 0)
+            avg_gain = np.mean(gains) if len(gains) else 0
+            avg_loss = np.mean(losses) if len(losses) else 0.001
+            rs_val = avg_gain / avg_loss if avg_loss > 0 else 100
+            rsi = 100 - (100 / (1 + rs_val))
 
-        # ─── 2. Relative Volume (RVOL) ───────────────────────
-        avg_vol_20 = np.mean(volumes[-21:-1]) if len(volumes) > 21 else np.mean(volumes[:-1])
-        current_vol = volumes[-1]
-        rvol = current_vol / avg_vol_20 if avg_vol_20 > 0 else 1.0
+        if 40 <= rsi <= 65:
+            rsi_score = 5
+        elif 30 <= rsi < 40 or 65 < rsi <= 75:
+            rsi_score = 3
+        elif rsi > 75 or rsi < 30:
+            rsi_score = 1
+        else:
+            rsi_score = 2
+
+        rsi_label = "OVERBOUGHT" if rsi > 70 else "OVERSOLD" if rsi < 30 else "BULLISH" if rsi >= 50 else "NEUTRAL"
+
+        # RVOL
+        avg_vol_20 = np.mean(daily_volumes[-21:-1]) if len(daily_volumes) > 21 else (np.mean(daily_volumes[:-1]) if len(daily_volumes) > 1 else 1)
+        current_vol = daily_volumes[-1]
+        rvol = intraday_rvol if intraday_rvol is not None else (current_vol / avg_vol_20 if avg_vol_20 > 0 else 1.0)
 
         if rvol >= 2.0:
             rvol_score = 5
@@ -325,197 +371,100 @@ def grade_ticker(symbol: str) -> dict:
         else:
             rvol_score = 1
 
-        # ─── 3. RSI (14-period) ──────────────────────────────
-        # Use intraday RSI when available (matches Pine Script)
-        if intraday_rsi is not None:
-            rsi = intraday_rsi
-        else:
-            deltas = np.diff(closes[-15:])
-            gains = np.where(deltas > 0, deltas, 0)
-            losses = np.where(deltas < 0, -deltas, 0)
-            avg_gain = np.mean(gains) if len(gains) else 0
-            avg_loss = np.mean(losses) if len(losses) else 0.001
-            rs = avg_gain / avg_loss if avg_loss > 0 else 100
-            rsi = 100 - (100 / (1 + rs))
+        # ─── 7. CATALYST DETECTION (Pine: gap >4% AND rvol >2.5) ───
+        gap_pct = ((today_open - prev_close) / prev_close) * 100 if prev_close > 0 else 0
+        is_catalyst = abs(gap_pct) > 4.0 and rvol > 2.5
 
-        if 40 <= rsi <= 65:
-            rsi_score = 5  # Ideal momentum zone
-        elif 30 <= rsi < 40 or 65 < rsi <= 75:
-            rsi_score = 3
-        elif rsi > 75:
-            rsi_score = 1  # Overbought — matches agent RSI_EXHAUSTED
-            rsi_label = "OVERBOUGHT"
-        elif rsi < 30:
-            rsi_score = 1  # Oversold
-            rsi_label = "OVERSOLD"
-        else:
-            rsi_score = 2
+        # ─── 8. 1H EMA RIBBON (8/21/34) — Pine: request.security("60") ──
+        ribbon_source = "daily"
+        try:
+            hourly = yf.Ticker(symbol).history(period="5d", interval="1h")
+            if not hourly.empty and len(hourly) >= 35:
+                h_closes = hourly["Close"].dropna().values.tolist()
+                ema_8 = calculate_ema(h_closes, 8)
+                ema_21 = calculate_ema(h_closes, 21)
+                ema_34 = calculate_ema(h_closes, 34)
+                e8, e21, e34 = ema_8[-1], ema_21[-1], ema_34[-1]
+                ribbon_source = "1h"
+            else:
+                raise ValueError("Insufficient 1H data")
+        except Exception as e:
+            print(f"[1H Ribbon] {symbol}: using daily fallback: {e}")
+            ema_8 = calculate_ema(daily_closes, 8)
+            ema_21 = calculate_ema(daily_closes, 21)
+            ema_34 = calculate_ema(daily_closes, 34)
+            e8, e21, e34 = ema_8[-1], ema_21[-1], ema_34[-1]
 
-        if rsi > 70:
-            rsi_label = "OVERBOUGHT"
-        elif rsi < 30:
-            rsi_label = "OVERSOLD"
-        elif rsi >= 50:
-            rsi_label = "BULLISH"
-        else:
-            rsi_label = "NEUTRAL"
-
-        # ─── 4. ATR (14-period, Wilder's RMA) ─────────────────
-        # Switched from simple mean to Wilder's smoothing to match
-        # TradingView's ta.atr(14) and the trading agent's computation.
-        trs = []
-        if len(closes) >= 2:
-            trs.append(highs[0] - lows[0])  # First TR = High - Low
-            for i in range(1, len(closes)):
-                tr = max(
-                    highs[i] - lows[i],
-                    abs(highs[i] - closes[i-1]),
-                    abs(lows[i] - closes[i-1])
-                )
-                trs.append(tr)
-        if len(trs) >= 14:
-            atr = sum(trs[:14]) / 14  # First ATR = SMA
-            for tr_val in trs[14:]:
-                atr = (atr * 13 + tr_val) / 14  # Wilder's smoothing
-        elif trs:
-            atr = np.mean(trs)
-        else:
-            atr = 0
-        atr_pct = (atr / current_price) * 100 if current_price > 0 else 0
-
-        if 0.5 <= atr_pct <= 3.0:
-            atr_score = 5  # Best range for day trading
-        elif 3.0 < atr_pct <= 5.0:
-            atr_score = 3
-        elif atr_pct > 5.0:
-            atr_score = 1  # Too volatile
-        else:
-            atr_score = 2  # Too sleepy
-
-        # ─── 5. Momentum (5-day price change) ────────────────
-        if len(closes) >= 6:
-            momentum = ((closes[-1] - closes[-6]) / closes[-6]) * 100
-        else:
-            momentum = 0
-
-        if momentum > 3:
-            mom_score = 5
-        elif momentum > 1:
-            mom_score = 4
-        elif momentum > -1:
-            mom_score = 3
-        elif momentum > -3:
-            mom_score = 2
-        else:
-            mom_score = 1
-
-        # ─── 6. Trend Alignment (EMA slope) ────────────────
-        sma_20 = np.mean(closes[-20:]) if len(closes) >= 20 else np.mean(closes)
-        above_sma = current_price > sma_20
-        # Trend uses EMA fast > EMA slow + positive slope (matches agent)
+        # Ribbon scoring (includes trend — slope check merged in)
         ema_slope_positive = len(ema_8) >= 3 and ema_8[-1] > ema_8[-3]
-        if e8 > e21 and ema_slope_positive:
-            trend_score = 5
-            trend = "ALIGNED"
+
+        if e8 > e21 > e34 and ema_slope_positive:
+            ribbon_status, ribbon_score = "BULL", 5
+        elif e8 > e21 > e34:
+            ribbon_status, ribbon_score = "BULL", 4
+        elif e8 > e21 and ema_slope_positive:
+            ribbon_status, ribbon_score = "NEUTRAL", 3
         elif e8 > e21:
-            trend_score = 3
-            trend = "ABOVE"
-        elif above_sma:
-            trend_score = 2
-            trend = "NEUTRAL"
+            ribbon_status, ribbon_score = "NEUTRAL", 3
+        elif e8 < e21 < e34:
+            ribbon_status, ribbon_score = "BEAR", 0
+        elif e8 < e21:
+            ribbon_status, ribbon_score = "BEAR", 1
         else:
-            trend_score = 1
-            trend = "BELOW"
+            ribbon_status, ribbon_score = "NEUTRAL", 2
 
-        # ─── 7. Relative Strength vs SPY (agent's #1 factor) ──
-        # Uses DAILY closes (not intraday) for 21-day comparison
-        spy_closes = _get_spy_closes()
-        rs_vs_spy = 1.0
-        rs_label = "NEUTRAL"
-        if len(daily_closes) >= 21 and len(spy_closes) >= 21:
-            stock_return = daily_closes[-1] / max(daily_closes[-21], 0.01)
-            spy_return = spy_closes[-1] / max(spy_closes[-21], 0.01)
-            rs_vs_spy = stock_return / spy_return if spy_return > 0 else 1.0
-
-        if rs_vs_spy >= 1.15:
-            rs_score = 5
-            rs_label = "LEADER"
-        elif rs_vs_spy >= 1.05:
-            rs_score = 4
-            rs_label = "STRONG"
-        elif rs_vs_spy >= 0.95:
-            rs_score = 3
-            rs_label = "NEUTRAL"
-        elif rs_vs_spy >= 0.85:
-            rs_score = 2
-            rs_label = "LAGGING"
-        else:
-            rs_score = 1
-            rs_label = "WEAK"
-
-        # ─── COMPOSITE GRADE ─────────────────────────────────
-        # Weights aligned with the trading agent's scanner config (scanner.yaml):
-        # Scanner: RS=20%, ATR=20%, Liquidity=15%, Sentiment=15%, Trend=15%, OrderFlow=15%
-        # TG:      RS=20%, Ribbon=20%, RVOL=15%, Trend=15%, RSI=10%, ATR=20%
-        # Weights synced with live scanner (scanner.yaml) as of 2026-04-13
-        # RS restored to 0.30 (dominant factor), ATR back to 0.10.
-        # Base score must be the PRIMARY ranking signal; bonuses are
-        # bounded multipliers in the live agent, not additive.
+        # ═══ COMPOSITE GRADE ═══════════════════════════════════════
+        # Step 1: Additive base score (weighted average, 0-100)
         weights = {
-            "rs_vs_spy": 0.30,
-            "ribbon": 0.20,
-            "rvol": 0.10,
-            "trend": 0.15,
+            "rs_vs_spy": 0.25,
+            "ribbon": 0.25,
+            "rvol": 0.15,
             "rsi": 0.10,
             "atr": 0.15,
+            "ichimoku": 0.10,
         }
 
         raw_score = (
             rs_score * weights["rs_vs_spy"]
             + ribbon_score * weights["ribbon"]
             + rvol_score * weights["rvol"]
-            + trend_score * weights["trend"]
             + rsi_score * weights["rsi"]
             + atr_score * weights["atr"]
+            + ichimoku_score * weights["ichimoku"]
         )
 
         # Scale to 0-100
-        final_score = round((raw_score / 5) * 100)
+        base_score = round((raw_score / 5) * 100)
 
-        # ─── RSI OVERBOUGHT HARD PENALTY ──────────────────────
-        # Matches the agent's RSI_EXHAUSTED gate and Pine Script behavior.
-        # If RSI > 75, cap the grade at D regardless of other factors.
-        # This prevents the Ticker Grader from showing "B" while the
-        # Pine Script shows "D" on the same stock (RIOT incident).
-        rsi_penalty_applied = False
-        if rsi > 75:
-            final_score = min(final_score, 40)  # Cap at D territory
-            rsi_penalty_applied = True
+        # Step 2: Multiplicative penalties (Pine alignment)
+        # These make "one bad critical factor tanks the grade"
+        cloud_mult = 1.0 if in_cloud else 0.75
+        ichi_mult = 1.0 if above_ichimoku else 0.85
+        rsi_mult = 0.50 if rsi > 75 else (1.05 if rsi <= 25 else 1.0)
+        cat_mult = 1.25 if is_catalyst else 1.0
+
+        final_score = round(base_score * cloud_mult * ichi_mult * rsi_mult * cat_mult)
+        final_score = max(0, min(100, final_score))
+
+        # Step 3: Grade assignment
+        rsi_penalty_applied = rsi > 75
 
         if final_score >= 80:
-            grade = "A"
-            verdict = "Strong Setup — High Conviction"
+            grade, verdict = "A", "Strong Setup — High Conviction"
         elif final_score >= 65:
-            grade = "B"
-            verdict = "Solid Setup — Moderate Conviction"
+            grade, verdict = "B", "Solid Setup — Moderate Conviction"
         elif final_score >= 50:
-            grade = "C"
-            verdict = "Neutral — Wait for Confirmation"
+            grade, verdict = "C", "Neutral — Wait for Confirmation"
         elif final_score >= 35:
             grade = "D"
-            if rsi_penalty_applied:
-                verdict = "RSI Overextended — Wait for Pullback"
-            else:
-                verdict = "Weak — Proceed with Caution"
+            verdict = "RSI Overextended — Wait for Pullback" if rsi_penalty_applied else "Weak — Proceed with Caution"
         else:
-            grade = "F"
-            verdict = "Avoid — Unfavorable Conditions"
+            grade, verdict = "F", "Avoid — Unfavorable Conditions"
 
-        # Day change
+        # ═══ METADATA ══════════════════════════════════════════════
         day_change = current_price - prev_close
         day_change_pct = (day_change / prev_close) * 100 if prev_close > 0 else 0
 
-        # Get company info
         try:
             info = ticker.info
             company_name = info.get("shortName", info.get("longName", symbol.upper()))
@@ -526,10 +475,7 @@ def grade_ticker(symbol: str) -> dict:
             sector = "—"
             market_cap = 0
 
-        # ─── SECTOR HEADWIND CHECK ────────────────────────────
-        # If the stock's sector ETF is down > 1% today, warn subscribers.
-        # This is a lightweight version of the agent's macro alignment.
-        # Maps GICS sectors to their SPDR ETFs.
+        # ─── SECTOR HEADWIND CHECK ─────────────────────────────────
         sector_headwind = False
         sector_etf_change = None
         _sector_etf_map = {
@@ -582,7 +528,7 @@ def grade_ticker(symbol: str) -> dict:
                     "ema_8": round(e8, 2),
                     "ema_21": round(e21, 2),
                     "ema_34": round(e34, 2),
-                    "ema_55": round(e55, 2),
+                    "source": ribbon_source,
                 },
                 "rvol": {
                     "value": round(rvol, 2),
@@ -596,24 +542,42 @@ def grade_ticker(symbol: str) -> dict:
                     "label": rsi_label,
                 },
                 "atr": {
-                    "value": round(atr, 2),
+                    "value": round(daily_atr, 2),
                     "pct": round(atr_pct, 2),
+                    "expansion_ratio": round(atr_ratio, 2),
                     "score": atr_score,
-                },
-                "momentum": {
-                    "five_day_pct": round(momentum, 2),
-                    "score": mom_score,
-                },
-                "trend": {
-                    "sma_20": round(sma_20, 2),
-                    "status": trend,
-                    "score": trend_score,
                 },
                 "rs_vs_spy": {
                     "value": round(rs_vs_spy, 3),
                     "score": rs_score,
                     "label": rs_label,
                 },
+                "ichimoku": {
+                    "baseline": round(ichimoku_base, 2),
+                    "above": above_ichimoku,
+                    "score": ichimoku_score,
+                },
+                "cloud": {
+                    "status": cloud_status,
+                    "in_cloud": in_cloud,
+                    "upper_lo": round(upper_cloud_lo, 2),
+                    "upper_hi": round(upper_cloud_hi, 2),
+                    "lower_lo": round(lower_cloud_lo, 2),
+                    "lower_hi": round(lower_cloud_hi, 2),
+                    "daily_open": round(today_open, 2),
+                },
+                "catalyst": {
+                    "detected": is_catalyst,
+                    "gap_pct": round(gap_pct, 2),
+                    "rvol_threshold": rvol >= 2.5,
+                },
+            },
+            "multipliers": {
+                "cloud": round(cloud_mult, 2),
+                "ichimoku": round(ichi_mult, 2),
+                "rsi": round(rsi_mult, 2),
+                "catalyst": round(cat_mult, 2),
+                "combined": round(cloud_mult * ichi_mult * rsi_mult * cat_mult, 3),
             },
             "sector_headwind": {
                 "active": sector_headwind,
@@ -720,9 +684,9 @@ async def verify_pro(request: Request):
                     try:
                         _redis_client.set(f"pro:{client_ip}", email, ex=_PRO_TTL)
                     except Exception as e:
-                        print(f"⚠️  Redis write failed for Pro cache ({e})")
+                        print(f"[WARN] Redis write failed for Pro cache ({e})")
 
-                print(f"✅ Pro verified: {email} → {client_ip}")
+                print(f"[OK] Pro verified: {email} -> {client_ip}")
                 return JSONResponse(content={"is_pro": True, "email": email})
 
         return JSONResponse(content={
@@ -731,7 +695,7 @@ async def verify_pro(request: Request):
         })
 
     except Exception as e:
-        print(f"❌ Stripe verification error: {e}")
+        print(f"[ERR] Stripe verification error: {e}")
         return JSONResponse(
             status_code=500,
             content={"is_pro": False, "message": "Verification failed. Please try again."}
