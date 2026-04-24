@@ -7,7 +7,7 @@
     <meta name="description" content="Grade any stock with an institutional-grade conviction score. 3 free grades daily — powered by the same engine behind an automated trading system. EMA Ribbon, RVOL, RSI, ATR analysis in seconds.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=2">
+    <link rel="stylesheet" href="/static/style.css?v=3">
 </head>
 <body>
     <!-- Background Effects -->
@@ -119,15 +119,15 @@
             <div class="grade-details">
                 <div class="grade-verdict" id="res-verdict">Strong Setup — High Conviction</div>
                 <p class="grade-explain">
-                    This score is calculated using the same 7-factor conviction model
-                    that powers our automated trading system. It combines relative strength,
-                    trend structure, volume confirmation, momentum, and volatility analysis.
+                    This score is calculated using the same conviction model
+                    that powers our automated trading system and Pine Script indicators. It combines relative strength,
+                    EMA ribbon structure, volume confirmation, Ichimoku baseline, and ATR cloud analysis.
                 </p>
                 <div id="grade-data-source" style="display:none; margin-top:8px;">
                     <span id="data-source-badge" class="" style="font-size:11px; padding:3px 8px; border-radius:6px; font-weight:600;"></span>
                 </div>
                 <div id="rsi-penalty-banner" style="display:none; margin-top:10px; padding:8px 12px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); border-radius:8px; font-size:12px; color:#f87171;">
-                    ⚠️ <strong>RSI Overbought (&gt;75)</strong> — Grade capped at D. The live system would also block this entry.
+                    ⚠️ <strong>RSI Overbought (&gt;75)</strong> — Score halved (0.50x penalty). The live system would also block this entry.
                 </div>
                 <div id="time-qualifier" style="display:none; margin-top:10px; padding:8px 12px; background:rgba(156,163,175,0.08); border:1px solid rgba(156,163,175,0.2); border-radius:8px; font-size:11px; color:#9ca3af; line-height:1.5;">
                     <strong>⏱ Timing Note:</strong> This tool grades structural quality using available market data. The QuantRead Pine Script indicator provides real-time candle-by-candle timing on your TradingView chart and may show a different conviction grade based on live price action. For execution-level precision, always confirm with the Pine Script.
@@ -196,7 +196,7 @@
                     <div class="ind-row"><span>EMA 8</span><span id="ind-ema8">—</span></div>
                     <div class="ind-row"><span>EMA 21</span><span id="ind-ema21">—</span></div>
                     <div class="ind-row"><span>EMA 34</span><span id="ind-ema34">—</span></div>
-                    <div class="ind-row"><span>EMA 55</span><span id="ind-ema55">—</span></div>
+                    <div class="ind-row"><span>Data Source</span><span id="ind-ribbon-src">—</span></div>
                 </div>
                 <div class="ind-bar-container">
                     <div class="ind-bar" id="ind-ribbon-bar" style="width:0%"></div>
@@ -239,7 +239,7 @@
             <div class="indicator-card" id="ind-atr">
                 <div class="ind-header">
                     <span class="ind-icon">🎯</span>
-                    <span class="ind-title">ATR Volatility</span>
+                    <span class="ind-title">ATR Expansion</span>
                     <span class="ind-badge" id="ind-atr-pct">—</span>
                 </div>
                 <div class="ind-values">
@@ -251,34 +251,31 @@
                 </div>
             </div>
 
-            <!-- Momentum -->
-            <div class="indicator-card" id="ind-mom">
+            <!-- Ichimoku -->
+            <div class="indicator-card" id="ind-ichi">
                 <div class="ind-header">
-                    <span class="ind-icon">🚀</span>
-                    <span class="ind-title">Momentum (5d)</span>
-                    <span class="ind-badge" id="ind-mom-pct">—</span>
+                    <span class="ind-icon">🏔️</span>
+                    <span class="ind-title">Ichimoku Baseline</span>
+                    <span class="ind-badge" id="ind-ichi-status">—</span>
                 </div>
                 <div class="ind-values">
-                    <div class="ind-row"><span>5-Day Change</span><span id="ind-mom-val">—</span></div>
+                    <div class="ind-row"><span>Kijun-sen</span><span id="ind-ichi-val">—</span></div>
                 </div>
                 <div class="ind-bar-container">
-                    <div class="ind-bar" id="ind-mom-bar" style="width:0%"></div>
+                    <div class="ind-bar" id="ind-ichi-bar" style="width:0%"></div>
                 </div>
             </div>
 
-            <!-- Trend -->
-            <div class="indicator-card" id="ind-trend">
+            <!-- Cloud -->
+            <div class="indicator-card" id="ind-cloud">
                 <div class="ind-header">
-                    <span class="ind-icon">📍</span>
-                    <span class="ind-title">Trend (SMA 20)</span>
-                    <span class="ind-badge" id="ind-trend-status">ABOVE</span>
+                    <span class="ind-icon">☁️</span>
+                    <span class="ind-title">ATR Cloud</span>
+                    <span class="ind-badge" id="ind-cloud-status">—</span>
                 </div>
                 <div class="ind-values">
-                    <div class="ind-row"><span>SMA 20</span><span id="ind-sma20">—</span></div>
-                    <div class="ind-row"><span>Price vs SMA</span><span id="ind-trend-diff">—</span></div>
-                </div>
-                <div class="ind-bar-container">
-                    <div class="ind-bar" id="ind-trend-bar" style="width:0%"></div>
+                    <div class="ind-row"><span>Cloud Range</span><span id="ind-cloud-range">—</span></div>
+                    <div class="ind-row"><span>Daily Open</span><span id="ind-cloud-open">—</span></div>
                 </div>
             </div>
         </div>
@@ -404,6 +401,6 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=2"></script>
+    <script src="/static/app.js?v=3"></script>
 </body>
 </html>

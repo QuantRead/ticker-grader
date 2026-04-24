@@ -174,7 +174,7 @@ function renderIndicators(ind, price) {
     document.getElementById("ind-ema8").textContent = `$${ind.ema_ribbon.ema_8.toFixed(2)}`;
     document.getElementById("ind-ema21").textContent = `$${ind.ema_ribbon.ema_21.toFixed(2)}`;
     document.getElementById("ind-ema34").textContent = `$${ind.ema_ribbon.ema_34.toFixed(2)}`;
-    document.getElementById("ind-ema55").textContent = `$${ind.ema_ribbon.ema_55.toFixed(2)}`;
+    document.getElementById("ind-ribbon-src").textContent = ind.ema_ribbon.source === "1h" ? "1H Candles" : "Daily";
     setBar("ind-ribbon-bar", ind.ema_ribbon.score, 5);
 
     // RVOL
@@ -196,26 +196,30 @@ function renderIndicators(ind, price) {
     setBar("ind-rsi-bar", ind.rsi.score, 5);
 
     // ATR
-    document.getElementById("ind-atr-pct").textContent = `${ind.atr.pct}%`;
-    document.getElementById("ind-atr-pct").className = "ind-badge neutral";
+    const atrExpBadge = document.getElementById("ind-atr-pct");
+    atrExpBadge.textContent = `${ind.atr.expansion_ratio}x`;
+    atrExpBadge.className = `ind-badge ${ind.atr.expansion_ratio >= 1.4 ? "hot" : ind.atr.expansion_ratio < 1.0 ? "cold" : "neutral"}`;
     document.getElementById("ind-atr-val").textContent = `$${ind.atr.value.toFixed(2)}`;
     document.getElementById("ind-atr-pctval").textContent = `${ind.atr.pct}%`;
     setBar("ind-atr-bar", ind.atr.score, 5);
 
-    // Momentum
-    const momBadge = document.getElementById("ind-mom-pct");
-    momBadge.textContent = `${ind.momentum.five_day_pct >= 0 ? "+" : ""}${ind.momentum.five_day_pct}%`;
-    momBadge.className = `ind-badge ${ind.momentum.five_day_pct > 0 ? "bull" : ind.momentum.five_day_pct < 0 ? "bear" : "neutral"}`;
-    document.getElementById("ind-mom-val").textContent = `${ind.momentum.five_day_pct >= 0 ? "+" : ""}${ind.momentum.five_day_pct}%`;
-    setBar("ind-mom-bar", ind.momentum.score, 5);
+    // Ichimoku
+    if (ind.ichimoku) {
+        const ichiBadge = document.getElementById("ind-ichi-status");
+        ichiBadge.textContent = ind.ichimoku.above ? "ABOVE" : "BELOW";
+        ichiBadge.className = `ind-badge ${ind.ichimoku.above ? "bull" : "bear"}`;
+        document.getElementById("ind-ichi-val").textContent = `$${ind.ichimoku.baseline.toFixed(2)}`;
+        setBar("ind-ichi-bar", ind.ichimoku.score, 5);
+    }
 
-    // Trend
-    setBadgeClass("ind-trend-status", ind.trend.status === "ABOVE" ? "BULL" : "BEAR");
-    document.getElementById("ind-trend-status").textContent = ind.trend.status;
-    document.getElementById("ind-sma20").textContent = `$${ind.trend.sma_20.toFixed(2)}`;
-    const trendDiff = ((price - ind.trend.sma_20) / ind.trend.sma_20 * 100).toFixed(2);
-    document.getElementById("ind-trend-diff").textContent = `${trendDiff >= 0 ? "+" : ""}${trendDiff}%`;
-    setBar("ind-trend-bar", ind.trend.score, 5);
+    // Cloud
+    if (ind.cloud) {
+        const cloudBadge = document.getElementById("ind-cloud-status");
+        cloudBadge.textContent = ind.cloud.status;
+        cloudBadge.className = `ind-badge ${ind.cloud.in_cloud ? "hot" : "neutral"}`;
+        document.getElementById("ind-cloud-range").textContent = `$${ind.cloud.upper_lo.toFixed(2)} – $${ind.cloud.upper_hi.toFixed(2)}`;
+        document.getElementById("ind-cloud-open").textContent = `$${ind.cloud.daily_open.toFixed(2)}`;
+    }
 }
 
 // ─── Render Placeholder Indicators (Blurred State) ─────────
@@ -227,7 +231,7 @@ function renderPlaceholderIndicators() {
     document.getElementById("ind-ema8").textContent = "••••";
     document.getElementById("ind-ema21").textContent = "••••";
     document.getElementById("ind-ema34").textContent = "••••";
-    document.getElementById("ind-ema55").textContent = "••••";
+    document.getElementById("ind-ribbon-src").textContent = "••••";
     document.getElementById("ind-rvol-val").textContent = "—";
     document.getElementById("ind-cvol").textContent = "••••";
     document.getElementById("ind-avol").textContent = "••••";
@@ -237,11 +241,11 @@ function renderPlaceholderIndicators() {
     document.getElementById("ind-atr-pct").textContent = "—";
     document.getElementById("ind-atr-val").textContent = "••••";
     document.getElementById("ind-atr-pctval").textContent = "••••";
-    document.getElementById("ind-mom-pct").textContent = "—";
-    document.getElementById("ind-mom-val").textContent = "••••";
-    document.getElementById("ind-trend-status").textContent = "—";
-    document.getElementById("ind-sma20").textContent = "••••";
-    document.getElementById("ind-trend-diff").textContent = "••••";
+    document.getElementById("ind-ichi-status").textContent = "—";
+    document.getElementById("ind-ichi-val").textContent = "••••";
+    document.getElementById("ind-cloud-status").textContent = "—";
+    document.getElementById("ind-cloud-range").textContent = "••••";
+    document.getElementById("ind-cloud-open").textContent = "••••";
 }
 
 // ─── Usage Counter ─────────────────────────────────────────
