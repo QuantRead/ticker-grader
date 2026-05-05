@@ -310,7 +310,11 @@ def grade_ticker(symbol: str) -> dict:
         # ─── 6. INTRADAY DATA (5m) — RSI & RVOL ────────────────────
         intraday_rsi = None
         intraday_rvol = None
+        intraday_rvol_current = None
+        intraday_rvol_average = None
         data_source = "daily"
+        rsi_source = "daily"
+        rvol_source = "daily_20d"
 
         try:
             intra_ticker = yf.Ticker(symbol)
@@ -330,6 +334,8 @@ def grade_ticker(symbol: str) -> dict:
                     _avg_vol = sum(intra_volumes[:-1]) / max(len(intra_volumes) - 1, 1)
                     if _avg_vol > 0:
                         intraday_rvol = _recent_vol / _avg_vol
+                        intraday_rvol_current = _recent_vol
+                        intraday_rvol_average = _avg_vol
                 data_source = "intraday_5m"
         except Exception as e:
             print(f"[Intraday] {symbol}: fetch failed: {e}")
@@ -337,6 +343,7 @@ def grade_ticker(symbol: str) -> dict:
         # RSI
         if intraday_rsi is not None:
             rsi = intraday_rsi
+            rsi_source = "intraday_5m"
         else:
             deltas = np.diff(daily_closes[-15:])
             gains = np.where(deltas > 0, deltas, 0)
@@ -360,7 +367,15 @@ def grade_ticker(symbol: str) -> dict:
         # RVOL
         avg_vol_20 = np.mean(daily_volumes[-21:-1]) if len(daily_volumes) > 21 else (np.mean(daily_volumes[:-1]) if len(daily_volumes) > 1 else 1)
         current_vol = daily_volumes[-1]
-        rvol = intraday_rvol if intraday_rvol is not None else (current_vol / avg_vol_20 if avg_vol_20 > 0 else 1.0)
+        if intraday_rvol is not None:
+            rvol = intraday_rvol
+            rvol_source = "intraday_5m"
+            rvol_display_current = intraday_rvol_current if intraday_rvol_current is not None else current_vol
+            rvol_display_average = intraday_rvol_average if intraday_rvol_average is not None else avg_vol_20
+        else:
+            rvol = current_vol / avg_vol_20 if avg_vol_20 > 0 else 1.0
+            rvol_display_current = current_vol
+            rvol_display_average = avg_vol_20
 
         if rvol >= 2.0:
             rvol_score = 5
@@ -379,6 +394,7 @@ def grade_ticker(symbol: str) -> dict:
 
         # ─── 8. 1H EMA RIBBON (8/21/34) — Pine: request.security("60") ──
         ribbon_source = "daily"
+        ichimoku_source = "daily"
         try:
             hourly = yf.Ticker(symbol).history(period="1mo", interval="1h")
             if not hourly.empty and len(hourly) >= 35:
@@ -399,6 +415,7 @@ def grade_ticker(symbol: str) -> dict:
                     ichimoku_base = (ichi_high + ichi_low) / 2.0
                     above_ichimoku = current_price > ichimoku_base
                     ichimoku_score = 5 if above_ichimoku else 1
+                    ichimoku_source = "1h"
 
             else:
                 raise ValueError("Insufficient 1H data")
@@ -416,6 +433,7 @@ def grade_ticker(symbol: str) -> dict:
                 ichimoku_base = (ichi_high + ichi_low) / 2.0
                 above_ichimoku = current_price > ichimoku_base
                 ichimoku_score = 5 if above_ichimoku else 1
+                ichimoku_source = "daily"
 
         # Ribbon scoring (includes trend — slope check merged in)
         ema_slope_positive = len(ema_8) >= 3 and ema_8[-1] > ema_8[-3]
@@ -542,7 +560,17 @@ def grade_ticker(symbol: str) -> dict:
             "day_change_pct": round(day_change_pct, 2),
             "grade": grade,
             "score": final_score,
+            "base_score": base_score,
+            "final_score": final_score,
             "verdict": verdict,
+            "component_scores": {
+                "rs_vs_spy": rs_score,
+                "ribbon": ribbon_score,
+                "rvol": rvol_score,
+                "rsi": rsi_score,
+                "atr": atr_score,
+                "ichimoku": ichimoku_score,
+            },
             "indicators": {
                 "ema_ribbon": {
                     "status": ribbon_status,
@@ -555,13 +583,15 @@ def grade_ticker(symbol: str) -> dict:
                 "rvol": {
                     "value": round(rvol, 2),
                     "score": rvol_score,
-                    "avg_volume": int(avg_vol_20),
-                    "current_volume": int(current_vol),
+                    "avg_volume": int(rvol_display_average),
+                    "current_volume": int(rvol_display_current),
+                    "source": rvol_source,
                 },
                 "rsi": {
                     "value": round(rsi, 1),
                     "score": rsi_score,
                     "label": rsi_label,
+                    "source": rsi_source,
                 },
                 "atr": {
                     "value": round(daily_atr, 2),
@@ -578,6 +608,7 @@ def grade_ticker(symbol: str) -> dict:
                     "baseline": round(ichimoku_base, 2),
                     "above": above_ichimoku,
                     "score": ichimoku_score,
+                    "source": ichimoku_source,
                 },
                 "cloud": {
                     "status": cloud_status,
@@ -607,6 +638,10 @@ def grade_ticker(symbol: str) -> dict:
                 "etf_change_pct": sector_etf_change,
             } if _etf_sym else None,
             "data_source": data_source,
+            "rvol_source": rvol_source,
+            "rsi_source": rsi_source,
+            "ribbon_source": ribbon_source,
+            "ichimoku_source": ichimoku_source,
             "rsi_penalty": rsi_penalty_applied,
             "timestamp": datetime.datetime.now().isoformat(),
         }

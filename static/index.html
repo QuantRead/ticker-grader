@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QuantRead Ticker Grader — Free Stock Analysis Tool</title>
-    <meta name="description" content="Grade any stock with an institutional-grade conviction score. 3 free grades daily — powered by the same engine behind an automated trading system. EMA Ribbon, RVOL, RSI, ATR analysis in seconds.">
+    <meta name="description" content="Grade any stock with an institutional-grade structural score. 3 free grades daily using the same factor family as QuantRead research workflows. EMA Ribbon, RVOL, RSI, ATR analysis in seconds.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css?v=3">
@@ -37,8 +37,8 @@
             Ticker <span class="gradient-text">Grader</span>
         </h1>
         <p class="hero-subtitle">
-            Institutional-grade conviction scoring for any stock. <br>
-            Powered by the same engine behind our automated trading system.
+            Institutional-grade structural scoring for any stock. <br>
+            Built from the same factor family used across QuantRead research workflows.
         </p>
 
         <!-- Search -->
@@ -120,15 +120,15 @@
             <div class="grade-details">
                 <div class="grade-verdict" id="res-verdict">Strong Setup — High Conviction</div>
                 <p class="grade-explain">
-                    This score is calculated using the same conviction model
-                    that powers our automated trading system and Pine Script indicators. It combines relative strength,
+                    This score is calculated from a structural factor-family model
+                    used across QuantRead research and chart workflows. It combines relative strength,
                     EMA ribbon structure, volume confirmation, Ichimoku baseline, and ATR cloud analysis.
                 </p>
                 <div id="grade-data-source" style="display:none; margin-top:8px;">
                     <span id="data-source-badge" class="" style="font-size:11px; padding:3px 8px; border-radius:6px; font-weight:600;"></span>
                 </div>
                 <div id="rsi-penalty-banner" style="display:none; margin-top:10px; padding:8px 12px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); border-radius:8px; font-size:12px; color:#f87171;">
-                    ⚠️ <strong>RSI Overbought (&gt;75)</strong> — Score halved (0.50x penalty). The live system would also block this entry.
+                    ⚠️ <strong>RSI Overbought (&gt;75)</strong> — This structural score applies a 0.50x penalty.
                 </div>
                 <div id="time-qualifier" style="display:none; margin-top:10px; padding:8px 12px; background:rgba(156,163,175,0.08); border:1px solid rgba(156,163,175,0.2); border-radius:8px; font-size:11px; color:#9ca3af; line-height:1.5;">
                     <strong>⏱ Timing Note:</strong> This tool grades structural quality using available market data. The QuantRead Pine Script indicator provides real-time candle-by-candle timing on your TradingView chart and may show a different conviction grade based on live price action. For execution-level precision, always confirm with the Pine Script.
@@ -213,7 +213,7 @@
                 </div>
                 <div class="ind-values">
                     <div class="ind-row"><span>Current Vol</span><span id="ind-cvol">—</span></div>
-                    <div class="ind-row"><span>Avg Vol (20d)</span><span id="ind-avol">—</span></div>
+                    <div class="ind-row"><span id="ind-avol-label">Avg Vol (20d)</span><span id="ind-avol">—</span></div>
                 </div>
                 <div class="ind-bar-container">
                     <div class="ind-bar" id="ind-rvol-bar" style="width:0%"></div>
@@ -298,7 +298,7 @@
                     <div class="interpret-card-badge day">DAY TRADER</div>
                     <h3 class="interpret-card-title">⚡ Built for you</h3>
                     <p class="interpret-card-text">
-                        This grade is computed from the same intraday engine that powers our automated trading bot.
+                        This grade is computed from the same structural factor family used across QuantRead analysis tools.
                         An <strong>"A"</strong> or <strong>"B"</strong> grade means the stock has the structural conditions
                         right now for a directional move — volume is confirming, trend is aligned, and the entry zone is active.
                     </p>

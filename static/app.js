@@ -183,6 +183,10 @@ function renderIndicators(ind, price) {
     rvolBadge.className = `ind-badge ${ind.rvol.value >= 1.5 ? "hot" : ind.rvol.value < 0.7 ? "cold" : "neutral"}`;
     document.getElementById("ind-cvol").textContent = formatVolume(ind.rvol.current_volume);
     document.getElementById("ind-avol").textContent = formatVolume(ind.rvol.avg_volume);
+    const rvolAvgLabel = document.getElementById("ind-avol-label");
+    if (rvolAvgLabel) {
+        rvolAvgLabel.textContent = ind.rvol.source === "intraday_5m" ? "Avg Vol (5m)" : "Avg Vol (20d)";
+    }
     setBar("ind-rvol-bar", ind.rvol.score, 5);
 
     // RSI
