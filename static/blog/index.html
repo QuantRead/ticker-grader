@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QuantRead Blog | Trading Setup Quality, Ticker Grader, and Scanner Sanity Checks</title>
+  <meta name="description" content="Trading education from QuantRead: setup quality, scanner sanity checks, Ticker Grader workflows, trend, volume, RSI, ATR, and relative strength.">
+  <link rel="canonical" href="https://quantread.app/blog">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090b0f;
+      --panel: #111620;
+      --text: #eef3f8;
+      --muted: #a9b4c2;
+      --line: #25303c;
+      --accent: #54d6b5;
+      --accent-2: #8ab4ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+    }
+
+    .wrap {
+      width: min(980px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 38px 0 64px;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 72px;
+    }
+
+    .logo,
+    nav a {
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .logo {
+      font-weight: 850;
+      font-size: 1.1rem;
+    }
+
+    nav a:not(.logo) {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    header {
+      max-width: 820px;
+      margin-bottom: 42px;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: 0.82rem;
+      font-weight: 850;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      font-size: clamp(2.4rem, 6vw, 5rem);
+      line-height: 1;
+      letter-spacing: 0;
+      margin: 0 0 20px;
+    }
+
+    .dek {
+      color: var(--muted);
+      font-size: clamp(1.08rem, 2vw, 1.28rem);
+      max-width: 700px;
+      margin: 0;
+    }
+
+    .article-card {
+      display: block;
+      color: inherit;
+      text-decoration: none;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: clamp(22px, 5vw, 34px);
+      transition: border-color 0.18s ease, transform 0.18s ease;
+    }
+
+    .article-card:hover {
+      border-color: rgba(84, 214, 181, 0.55);
+      transform: translateY(-2px);
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .tag {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 4px 9px;
+    }
+
+    h2 {
+      font-size: clamp(1.65rem, 4vw, 2.6rem);
+      line-height: 1.08;
+      margin: 0 0 14px;
+    }
+
+    .summary {
+      color: var(--muted);
+      font-size: 1.03rem;
+      max-width: 760px;
+      margin: 0 0 22px;
+    }
+
+    .read {
+      color: var(--accent);
+      font-weight: 850;
+    }
+
+    footer {
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      margin-top: 54px;
+      padding-top: 24px;
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 640px) {
+      nav {
+        align-items: flex-start;
+        flex-direction: column;
+        margin-bottom: 48px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <nav>
+      <a class="logo" href="/">QuantRead</a>
+      <a href="/">Ticker Grader</a>
+    </nav>
+
+    <header>
+      <div class="eyebrow">QuantRead Blog</div>
+      <h1>Trading setup quality without the scanner circus.</h1>
+      <p class="dek">Blunt trading education for people trying to decide whether a hot ticker is actually worth attention, or just blinking loudly in the corner like a slot machine with a brokerage account.</p>
+    </header>
+
+    <a class="article-card" href="/blog/how-do-i-know-if-a-stock-is-actually-a-good-day-trade-setup">
+      <div class="tag-row">
+        <span class="tag">Day trading</span>
+        <span class="tag">Setup quality</span>
+        <span class="tag">Ticker Grader</span>
+      </div>
+      <h2>How Do I Know If a Stock Is Actually a Good Day Trade Setup?</h2>
+      <p class="summary">A hot stock is not automatically a clean trade. Sometimes it is opportunity. Sometimes it is a flaming shopping cart with a ticker symbol taped to the front.</p>
+      <span class="read">Read the article</span>
+    </a>
+
+    <footer>
+      Educational content only. Not financial advice. Built by QuantRead.
+    </footer>
+  </main>
+</body>
+</html>

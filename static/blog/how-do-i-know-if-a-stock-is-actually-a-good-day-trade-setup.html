@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How Do I Know If a Stock Is Actually a Good Day Trade Setup? | QuantRead</title>
+  <meta name="description" content="A blunt, practical guide to checking whether a hot stock is actually a clean day trade setup, using trend, volume, RSI, ATR, momentum, and relative strength.">
+  <link rel="canonical" href="https://quantread.app/blog/how-do-i-know-if-a-stock-is-actually-a-good-day-trade-setup">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090b0f;
+      --panel: #10151d;
+      --text: #eef3f8;
+      --muted: #a9b4c2;
+      --line: #25303c;
+      --accent: #54d6b5;
+      --accent-2: #8ab4ff;
+      --warning: #ffd166;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+    }
+
+    .wrap {
+      width: min(880px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 38px 0 56px;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 26px;
+      margin-bottom: 34px;
+    }
+
+    .brand {
+      color: var(--accent);
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      font-size: clamp(2.1rem, 5vw, 4.3rem);
+      line-height: 1.02;
+      letter-spacing: 0;
+      margin: 0 0 18px;
+      max-width: 820px;
+    }
+
+    .dek {
+      color: var(--muted);
+      font-size: clamp(1.05rem, 2vw, 1.28rem);
+      max-width: 720px;
+      margin: 0;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    article {
+      font-size: 1.06rem;
+    }
+
+    h2 {
+      font-size: clamp(1.45rem, 3vw, 2rem);
+      line-height: 1.16;
+      margin: 42px 0 12px;
+    }
+
+    p {
+      margin: 0 0 18px;
+    }
+
+    blockquote {
+      margin: 28px 0;
+      padding: 22px 24px;
+      background: var(--panel);
+      border-left: 4px solid var(--accent);
+      color: var(--text);
+      font-size: 1.18rem;
+      font-weight: 750;
+    }
+
+    ul,
+    ol {
+      margin: 16px 0 28px;
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 8px 0;
+    }
+
+    .callout {
+      margin: 34px 0;
+      padding: 22px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+    }
+
+    .callout strong {
+      color: var(--warning);
+    }
+
+    .cta {
+      margin-top: 42px;
+      padding: 24px;
+      background: #0f1a1a;
+      border: 1px solid rgba(84, 214, 181, 0.35);
+      border-radius: 8px;
+    }
+
+    .cta h2 {
+      margin-top: 0;
+    }
+
+    .cta a {
+      display: inline-flex;
+      align-items: center;
+      color: #06110f;
+      background: var(--accent);
+      text-decoration: none;
+      font-weight: 800;
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin-top: 8px;
+    }
+
+    .note {
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      margin-top: 44px;
+      padding-top: 22px;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div class="brand">QuantRead Ticker Grader</div>
+      <h1>How Do I Know If a Stock Is Actually a Good Day Trade Setup?</h1>
+      <p class="dek">A hot stock is not automatically a clean trade. Sometimes it is opportunity. Sometimes it is a flaming shopping cart with a ticker symbol taped to the front.</p>
+      <div class="meta">
+        <span class="pill">Day trading education</span>
+        <span class="pill">Setup quality</span>
+        <span class="pill">Draft 001</span>
+      </div>
+    </header>
+
+    <article>
+      <p>A stock being up 12% at 9:47 AM does not automatically make it a gift from the trading gods. Sometimes it is a clean opportunity. Sometimes it is a flaming shopping cart rolling downhill with a ticker symbol taped to the front.</p>
+
+      <p>That is the annoying part.</p>
+
+      <p>The scanner yells, the candle is green, the volume is loud, and your brain starts doing that beautiful little financial tap dance where every second feels like you are missing the greatest trade since sliced bread learned how to gap up.</p>
+
+      <p>But the real question is not:</p>
+
+      <blockquote>Is this stock moving?</blockquote>
+
+      <p>That is baby food.</p>
+
+      <p>The better question is:</p>
+
+      <blockquote>Is this ticker actually worth my attention right now?</blockquote>
+
+      <p>That is where QuantRead's Ticker Grader comes in.</p>
+
+      <h2>The Scanner Is Not The Oracle</h2>
+
+      <p>A scanner is great at finding noise.</p>
+
+      <p>That sounds insulting, but it is true. A scanner can show you biggest gainers, unusual volume, gap-up names, stocks near highs, and every other ticker currently waving its arms in the air like it needs a manager.</p>
+
+      <p>Useful? Absolutely.</p>
+
+      <p>Enough to risk money on? Not by itself.</p>
+
+      <p>A scanner's job is discovery. It says, "Hey, something is happening over here." That is all. It is not a permission slip to smash the buy button like it owes you rent.</p>
+
+      <p>The next step is quality control.</p>
+
+      <h2>Activity And Quality Are Not The Same Thing</h2>
+
+      <p>This is where a lot of watchlists become a junk drawer.</p>
+
+      <p>You open the scanner and suddenly there are 40 names that all look alive. Great. Now instead of having no ideas, you have too many ideas, which is just the same problem wearing a fake mustache.</p>
+
+      <p>Some of those tickers are strong.</p>
+
+      <p>Some are already exhausted.</p>
+
+      <p>Some have volume, but the volume is not actually helping direction.</p>
+
+      <p>Some have enough range left to trade.</p>
+
+      <p>Some have already burned through the useful part of the move and are now just standing there breathing heavily.</p>
+
+      <p>That is why "green" is not a strategy. "High volume" is not a strategy either. Those are ingredients. You still have to check whether the meal is edible.</p>
+
+      <h2>What A Good Setup Usually Has</h2>
+
+      <p>A cleaner setup tends to have multiple pieces agreeing with each other.</p>
+
+      <p>You want to see things like:</p>
+
+      <ul>
+        <li>Trend moving in the same direction as the trade idea.</li>
+        <li>EMA structure that is not tangled like a phone charger in a backpack.</li>
+        <li>Relative volume that says people are actually participating.</li>
+        <li>RSI that shows strength without looking like it needs medical attention.</li>
+        <li>ATR and range that leave enough room for the trade to matter.</li>
+        <li>Momentum that is building instead of wheezing.</li>
+        <li>Relative strength versus SPY or the broader tape.</li>
+      </ul>
+
+      <p>No single factor is magic. If one indicator could solve trading by itself, everyone would be retired on a private island by Thursday.</p>
+
+      <p>The point is alignment. When trend, volume, range, momentum, and relative strength are all leaning the same way, the setup deserves more attention.</p>
+
+      <p>When everything disagrees, you are not trading a setup. You are adopting a problem.</p>
+
+      <h2>The Fast Checklist</h2>
+
+      <p>Before taking a day trade, ask:</p>
+
+      <ol>
+        <li>Is the trend actually clean?</li>
+        <li>Is volume above normal and helping the move?</li>
+        <li>Is RSI showing strength, or is it flashing exhaustion?</li>
+        <li>Does ATR leave enough realistic room for the trade?</li>
+        <li>Is the ticker stronger than the market?</li>
+        <li>Is price near a useful level, or did it already sprint three blocks without you?</li>
+        <li>Would I still like this setup if it were not glowing on a scanner?</li>
+      </ol>
+
+      <div class="callout">
+        <p><strong>That last one is rude, but it works.</strong> If the only reason you like the ticker is because it is blinking at you in a watchlist, that is not conviction. That is a slot machine with better fonts.</p>
+      </div>
+
+      <h2>How Ticker Grader Helps</h2>
+
+      <p>Ticker Grader is a confirmation layer.</p>
+
+      <p>It does not need to scream at you. It does not need to pretend every ticker is a once-in-a-lifetime trade. It just grades the structure so you can slow down for five seconds before donating money to a bad impulse.</p>
+
+      <p>The grader looks at the kind of things that actually matter:</p>
+
+      <ul>
+        <li>trend</li>
+        <li>EMA structure</li>
+        <li>relative volume</li>
+        <li>RSI</li>
+        <li>ATR</li>
+        <li>momentum</li>
+        <li>relative strength</li>
+      </ul>
+
+      <p>If the grade is strong, the ticker may deserve chart review.</p>
+
+      <p>If the grade is weak, maybe the stock still moves. Fine. Stocks do weird things all day. But now you know the structure is not clean, which means the risk is different.</p>
+
+      <p>That distinction matters.</p>
+
+      <h2>A Better Workflow</h2>
+
+      <p>Use the scanner for discovery.</p>
+
+      <p>Use Ticker Grader for quality control.</p>
+
+      <p>Use the chart for execution context.</p>
+
+      <p>Use position sizing so one bad idea does not walk into your account with steel boots on.</p>
+
+      <p>That workflow is simple, but simple is good. Trading already has enough moving parts. You do not need to turn every decision into a NASA launch sequence just to find out the ticker was overextended the whole time.</p>
+
+      <h2>Final Thought</h2>
+
+      <p>A good day trade setup is not just the stock making the most noise.</p>
+
+      <p>It is the ticker where the evidence lines up before the trade becomes painfully obvious. Trend is clean. Volume is supportive. RSI is not completely cooked. Range still exists. Relative strength is doing its job.</p>
+
+      <p>That is the stuff worth paying attention to.</p>
+
+      <p>Everything else is just a shiny object with a bid-ask spread.</p>
+
+      <section class="cta">
+        <h2>Check A Ticker Before It Gets Your Money Involved</h2>
+        <p>Run the symbol through QuantRead Ticker Grader before treating scanner noise like a trade idea with a college degree.</p>
+        <a href="/" rel="noreferrer">Open Ticker Grader</a>
+      </section>
+
+      <p class="note">Educational note: this article is for general trading education only. It is not financial advice or a recommendation to buy or sell any security.</p>
+    </article>
+  </main>
+</body>
+</html>

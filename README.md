@@ -3,7 +3,7 @@
 Free institutional-grade conviction scoring for any stock. Powered by the QuantRead Indicator Suite.
 
 ## Features
-- 6-factor conviction scoring (EMA Ribbon, RVOL, RSI, ATR, Momentum, Trend)
+- 7-factor conviction scoring (EMA Ribbon, RVOL, RSI, ATR, Momentum, Trend, RS vs SPY)
 - Real-time market data via yfinance
 - Premium dark-mode UI
 - A/B/C/D/F grading system

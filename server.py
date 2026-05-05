@@ -21,7 +21,7 @@ import numpy as np
 import yfinance as yf
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="QuantRead Ticker Grader")
@@ -733,6 +733,60 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 @app.get("/")
 async def serve_index():
     return FileResponse(os.path.join(static_dir, "index.html"))
+
+
+@app.get("/blog")
+async def serve_blog_index():
+    return FileResponse(os.path.join(static_dir, "blog", "index.html"))
+
+
+@app.get("/blog/")
+async def serve_blog_index_slash():
+    return FileResponse(os.path.join(static_dir, "blog", "index.html"))
+
+
+@app.get("/blog/how-do-i-know-if-a-stock-is-actually-a-good-day-trade-setup")
+async def serve_first_blog_article():
+    return FileResponse(os.path.join(
+        static_dir,
+        "blog",
+        "how-do-i-know-if-a-stock-is-actually-a-good-day-trade-setup.html",
+    ))
+
+
+@app.get("/robots.txt")
+async def serve_robots_txt():
+    content = "\n".join([
+        "User-agent: *",
+        "Allow: /",
+        "Sitemap: https://quantread.app/sitemap.xml",
+        "",
+    ])
+    return Response(content=content, media_type="text/plain")
+
+
+@app.get("/sitemap.xml")
+async def serve_sitemap_xml():
+    content = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://quantread.app/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://quantread.app/blog</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://quantread.app/blog/how-do-i-know-if-a-stock-is-actually-a-good-day-trade-setup</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+</urlset>
+"""
+    return Response(content=content, media_type="application/xml")
 
 
 # ─── Startup ────────────────────────────────────────────────────
